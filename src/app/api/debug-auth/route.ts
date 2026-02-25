@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     let authError = null;
     try {
