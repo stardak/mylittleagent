@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
 
 export async function POST(req: Request) {
     try {
@@ -44,20 +43,13 @@ export async function POST(req: Request) {
             );
         }
 
-        // Create uploads directory
-        const uploadsDir = path.join(process.cwd(), "public", "uploads");
-        await mkdir(uploadsDir, { recursive: true });
-
         // Generate unique filename
         const ext = file.name.split(".").pop() || "jpg";
         const filename = `${membership.workspaceId}-${field}-${Date.now()}.${ext}`;
-        const filepath = path.join(uploadsDir, filename);
 
-        // Write the file
-        const buffer = Buffer.from(await file.arrayBuffer());
-        await writeFile(filepath, buffer);
-
-        const url = `/uploads/${filename}`;
+        // Upload to Vercel Blob
+        const blob = await put(filename, file, { access: 'public' });
+        const url = blob.url;
 
         // Update the brand profile with the image URL
         if (field === "heroImageUrl" || field === "logoUrl") {
