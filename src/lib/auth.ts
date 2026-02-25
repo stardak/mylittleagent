@@ -6,6 +6,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 
+// Force NextAuth to use the production URL instead of the Vercel branch URL
+process.env.AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || "https://mylittleagent.vercel.app";
+process.env.NEXTAUTH_URL = process.env.NEXT_PUBLIC_NEXTAUTH_URL || "https://mylittleagent.vercel.app";
+
 export const authConfig: NextAuthConfig = {
     debug: true,
     trustHost: true,
