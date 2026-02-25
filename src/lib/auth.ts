@@ -9,6 +9,7 @@ import prisma from "@/lib/prisma";
 export const authConfig: NextAuthConfig = {
     debug: true,
     trustHost: true,
+    secret: process.env.AUTH_SECRET || "fallback_secret_for_vercel_builds_only",
     adapter: PrismaAdapter(prisma),
     session: {
         strategy: "jwt",
