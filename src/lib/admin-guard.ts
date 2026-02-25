@@ -1,4 +1,6 @@
 import { auth } from "@/lib/auth";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 
 /**

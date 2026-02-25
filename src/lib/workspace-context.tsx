@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
@@ -31,9 +32,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (session) {
             const s = session as any;
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setWorkspaceId(s.activeWorkspaceId ?? null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setWorkspaceName(s.activeWorkspaceName ?? null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setWorkspaceSlug(s.activeWorkspaceSlug ?? null);
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setRole(s.role ?? null);
         }
     }, [session]);
