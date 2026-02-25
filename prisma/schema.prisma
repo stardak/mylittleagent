@@ -1,0 +1,552 @@
+// Creator Business Manager — Full Multi-Tenant Schema
+// All data scoped to workspaceId (except User and global tables)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MULTI-TENANCY & AUTH
+// ============================================================
+
+model User {
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  name                 String
+  passwordHash         String?
+  avatar               String?
+  isAdmin              Boolean              @default(false)
+  lastLoginAt          DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  memberships          Membership[]
+  activities           Activity[]
+  accounts             Account[]
+  sessions             Session[]
+  discountRedemptions  DiscountRedemption[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id                   String    @id @default(cuid())
+  name                 String
+  slug                 String    @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  // Billing
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?
+  stripePriceId        String?
+  plan                 String    @default("trial")
+  trialEndsAt          DateTime?
+  subscriptionStatus   String?
+  // Relations
+  members              Membership[]
+  brandProfile         BrandProfile?
+  platforms            Platform[]
+  caseStudies          CaseStudy[]
+  testimonials         Testimonial[]
+  brands               Brand[]
+  campaigns            Campaign[]
+  sequences            Sequence[]
+  emails               Email[]
+  invoices             Invoice[]
+  tasks                Task[]
+  files                File[]
+  activities           Activity[]
+  settings             Setting[]
+  emailTemplates       EmailTemplate[]
+  conversations        Conversation[]
+  outreaches           Outreach[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role        String    @default("owner")
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, workspaceId])
+}
+
+// ============================================================
+// BRAND PROFILE (replaces static BRAND.md per workspace)
+// ============================================================
+
+model BrandProfile {
+  id                 String    @id @default(cuid())
+  workspaceId        String    @unique
+  workspace          Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // Identity
+  brandName          String
+  tagline            String?
+  bio                String?   @db.Text
+  location           String?
+  contactEmail       String?
+  website            String?
+  // Positioning
+  toneOfVoice        String?
+  contentCategories  String[]
+  keyDifferentiators String?   @db.Text
+  // Visuals
+  logoUrl            String?
+  heroImageUrl       String?   // Hero/cover image for media card
+  primaryColor       String?   @default("#1A9E96")
+  headingFont        String?   @default("Recoleta")
+  // Rate card (JSON for flexibility)
+  rateCard           Json?
+  // AI Configuration (BYOK)
+  anthropicApiKey    String?   @db.Text  // AES-256 encrypted — NEVER store plain text
+  // Business details (for invoicing)
+  businessName       String?
+  businessAddress    String?   @db.Text
+  vatNumber          String?
+  bankDetails        String?   @db.Text
+  paymentTerms       String?   @default("net-30")
+  currency           String    @default("GBP")
+  // Audience summary
+  audienceSummary    String?   @db.Text
+  updatedAt          DateTime  @updatedAt
+}
+
+model Platform {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type           String
+  handle         String
+  displayName    String
+  followers      Int?
+  avgViews       Int?
+  engagementRate Float?
+  totalViews     Int?
+  storyOpens     Int?
+  // Demographics
+  genderFemale   Float?
+  ageRange1      String?
+  ageRange1Pct   Float?
+  topCountry1    String?
+  topCountry1Pct Float?
+  demographics   Json?
+  lastUpdated    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model CaseStudy {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brandName    String
+  industry     String?
+  brief        String?   @db.Text
+  result       String
+  resultMetric String?
+  description  String?   @db.Text
+  contentUrl   String?
+  imageUrl     String?
+  featured     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model Testimonial {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  quote       String    @db.Text
+  authorName  String
+  authorTitle String?
+  company     String
+  featured    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================================
+// CRM & PIPELINE
+// ============================================================
+
+model Brand {
+  id             String               @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name           String
+  industry       String?
+  website        String?
+  socialHandles  Json?
+  contactName    String?
+  contactTitle   String?
+  contactEmail   String?
+  contactPhone   String?
+  source         String?
+  brandFitScore  Int?
+  estimatedValue Float?
+  pipelineStage  String               @default("research")
+  nextFollowUp   DateTime?
+  nextAction     String?
+  notes          String?              @db.Text
+  tags           String[]
+  lostReason     String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  campaigns      Campaign[]
+  emails         Email[]
+  activities     Activity[]
+  sequences      SequenceEnrollment[]
+  outreaches     Outreach[]
+}
+
+// ============================================================
+// CAMPAIGNS & DELIVERABLES
+// ============================================================
+
+model Campaign {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brandId        String
+  brand          Brand         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  name           String
+  brief          String?       @db.Text
+  startDate      DateTime?
+  endDate        DateTime?
+  fee            Float?
+  paymentTerms   String?
+  usageRights    String?
+  exclusivity    String?
+  revisionPolicy String?
+  status         String        @default("draft")
+  contractStatus String?
+  contractUrl    String?
+  briefDocument  Json?                          // AI-generated partnership brief
+  briefGeneratedAt DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deliverables   Deliverable[]
+  invoices       Invoice[]
+  files          File[]
+  tasks          Task[]
+  activities     Activity[]
+}
+
+model Deliverable {
+  id             String    @id @default(cuid())
+  campaignId     String
+  campaign       Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  type           String
+  platform       String
+  assignedTo     String?
+  description    String?   @db.Text
+  status         String    @default("not_started")
+  dueDate        DateTime?
+  reviewDate     DateTime?
+  publishDate    DateTime?
+  draftUrl       String?
+  liveUrl        String?
+  clientFeedback String?   @db.Text
+  views          Int?
+  likes          Int?
+  comments       Int?
+  shares         Int?
+  saves          Int?
+  clicks         Int?
+  engagementRate Float?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// ============================================================
+// SEQUENCES & EMAIL
+// ============================================================
+
+model Sequence {
+  id          String               @id @default(cuid())
+  workspaceId String
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  type        String
+  steps       Json
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  enrollments SequenceEnrollment[]
+}
+
+model SequenceEnrollment {
+  id          String    @id @default(cuid())
+  sequenceId  String
+  sequence    Sequence  @relation(fields: [sequenceId], references: [id], onDelete: Cascade)
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  status      String    @default("active")
+  currentStep Int       @default(0)
+  startedAt   DateTime  @default(now())
+  pausedAt    DateTime?
+  completedAt DateTime?
+  nextSendAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Email {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brandId      String?
+  brand        Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  direction    String
+  subject      String
+  body         String    @db.Text
+  toEmail      String
+  fromEmail    String?
+  status       String    @default("draft")
+  sentAt       DateTime?
+  openedAt     DateTime?
+  repliedAt    DateTime?
+  sequenceId   String?
+  sequenceStep Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model EmailTemplate {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  category    String
+  subject     String
+  body        String    @db.Text
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================================
+// INVOICING
+// ============================================================
+
+model Invoice {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId    String
+  campaign      Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  invoiceNumber String
+  issueDate     DateTime  @default(now())
+  dueDate       DateTime
+  lineItems     Json
+  subtotal      Float
+  vatRate       Float?
+  vatAmount     Float?
+  total         Float
+  currency      String    @default("GBP")
+  status        String    @default("draft")
+  sentAt        DateTime?
+  paidAt        DateTime?
+  pdfUrl        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([workspaceId, invoiceNumber])
+}
+
+// ============================================================
+// TASKS, FILES, ACTIVITY
+// ============================================================
+
+model Task {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  description String?   @db.Text
+  dueDate     DateTime?
+  priority    String    @default("medium")
+  status      String    @default("todo")
+  assignedTo  String?
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model File {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  filename    String
+  url         String
+  type        String
+  size        Int?
+  createdAt   DateTime  @default(now())
+}
+
+model Activity {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type        String
+  description String
+  brandId     String?
+  brand       Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+}
+
+model Setting {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  key         String
+  value       String    @db.Text
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, key])
+}
+
+// ============================================================
+// AI AGENT CONVERSATIONS
+// ============================================================
+
+model Conversation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  messages    Message[]
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user", "assistant"
+  content        String       @db.Text
+  toolCalls      Json?        // array of tool calls made (name, input, result)
+  tokenCount     Int?
+  createdAt      DateTime     @default(now())
+}
+
+// ============================================================
+// BRAND OUTREACH PIPELINE
+// ============================================================
+
+model Outreach {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  brandId          String?
+  brand            Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  // Brand Brief (Step 1)
+  brandName        String
+  contactEmail     String
+  product          String                   // product/service to promote
+  fitReason        String?   @db.Text       // why they're a good fit
+  brandIndustry    String?
+  brandUrl         String?                  // brand website URL for context
+  includeMediaCard Boolean   @default(false) // include media card link in emails
+
+  // Email Sequence (Step 2)
+  email1Subject    String?
+  email1Body       String?   @db.Text
+  email1SentAt     DateTime?
+  email2Subject    String?
+  email2Body       String?   @db.Text
+  email2SentAt     DateTime?
+  email2DueAt      DateTime?                // scheduled 7 days after email1
+
+  // Pitch Proposal (Step 3)
+  proposal         Json?                    // structured proposal data
+  proposalSentAt   DateTime?
+
+  // Pipeline status
+  status           String    @default("draft") // draft|sent|followed_up|replied|proposal_sent|archived
+  repliedAt        DateTime?
+  archivedAt       DateTime?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+// ============================================================
+// DISCOUNT CODES
+// ============================================================
+
+model DiscountCode {
+  id              String               @id @default(cuid())
+  code            String               @unique
+  type            String               // "percentage" | "fixed"
+  value           Float                // e.g. 20 = 20% or £20
+  appliesTo       String[]             // plan slugs; empty = all plans
+  duration        String               @default("first_month") // first_month | months | lifetime
+  durationMonths  Int?
+  maxRedemptions  Int?                 // null = unlimited
+  perUserLimit    Int                  @default(1)
+  expiresAt       DateTime?
+  isActive        Boolean              @default(true)
+  timesUsed       Int                  @default(0)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  redemptions     DiscountRedemption[]
+}
+
+model DiscountRedemption {
+  id             String       @id @default(cuid())
+  discountCodeId String
+  discountCode   DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redeemedAt     DateTime     @default(now())
+
+  @@unique([discountCodeId, userId])
+}

@@ -1,8 +1,16 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:is(.dark *));
+
+/* Recoleta heading font */
+@font-face {
+  font-family: "Recoleta";
+  src: url("/fonts/RecoletaAlt-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
 }
 
 @theme inline {
@@ -10,17 +18,234 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: "Recoleta", serif;
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+  /* My Little Agent brand colors */
+  --background: #F7F6F3;
+  --foreground: #2D2D2D;
+  --brand: #ea3382;
+  --brand-foreground: #ffffff;
+  --card: #ffffff;
+  --card-foreground: #2D2D2D;
+  --popover: #ffffff;
+  --popover-foreground: #2D2D2D;
+  --primary: #ea3382;
+  --primary-foreground: #ffffff;
+  --secondary: #F0EFEC;
+  --secondary-foreground: #2D2D2D;
+  --muted: #F0EFEC;
+  --muted-foreground: #737373;
+  --accent: #F0EFEC;
+  --accent-foreground: #2D2D2D;
+  --destructive: #ef4444;
+  --border: #E5E4E0;
+  --input: #E5E4E0;
+  --ring: #ea3382;
+  --chart-1: #ea3382;
+  --chart-2: #F59E0B;
+  --chart-3: #8B5CF6;
+  --chart-4: #EC4899;
+  --chart-5: #06B6D4;
+  --sidebar: #FAFAF8;
+  --sidebar-foreground: #2D2D2D;
+  --sidebar-primary: #ea3382;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #F0EFEC;
+  --sidebar-accent-foreground: #2D2D2D;
+  --sidebar-border: #E5E4E0;
+  --sidebar-ring: #ea3382;
+}
+
+.dark {
+  --background: #1C1C1E;
+  --foreground: #F5F5F5;
+  --brand: #2DD4BF;
+  --brand-foreground: #1C1C1E;
+  --card: #252528;
+  --card-foreground: #F5F5F5;
+  --popover: #252528;
+  --popover-foreground: #F5F5F5;
+  --primary: #2DD4BF;
+  --primary-foreground: #1C1C1E;
+  --secondary: #2A2A2D;
+  --secondary-foreground: #F5F5F5;
+  --muted: #2A2A2D;
+  --muted-foreground: #A1A1AA;
+  --accent: #2A2A2D;
+  --accent-foreground: #F5F5F5;
+  --destructive: #F87171;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #2DD4BF;
+  --chart-1: #2DD4BF;
+  --chart-2: #FBBF24;
+  --chart-3: #A78BFA;
+  --chart-4: #F472B6;
+  --chart-5: #22D3EE;
+  --sidebar: #252528;
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-primary: #2DD4BF;
+  --sidebar-primary-foreground: #1C1C1E;
+  --sidebar-accent: #2A2A2D;
+  --sidebar-accent-foreground: #F5F5F5;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #2DD4BF;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-heading);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Utility classes */
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes wobble {
+
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  25% {
+    transform: rotate(-2deg);
+  }
+
+  75% {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0) translateY(10px);
+    opacity: 0;
+  }
+
+  70% {
+    transform: scale(1.15) translateY(-2px);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes tiltLeft {
+  0% {
+    transform: rotate(0deg) translateX(0);
+  }
+
+  100% {
+    transform: rotate(-15deg) translateX(-3px);
+  }
+}
+
+@keyframes tiltRight {
+  0% {
+    transform: rotate(0deg) translateX(0);
+  }
+
+  100% {
+    transform: rotate(15deg) translateX(3px);
+  }
+}
+
+/* ─── Landing page scroll-reveal animations ─── */
+
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes landing-float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.landing-float {
+  animation: landing-float 4s ease-in-out infinite;
 }
