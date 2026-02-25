@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { authConfig } from "@/lib/auth";
+import prisma from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
     let authError = null;
+    let dbStatus = "unchecked";
+    let dbError = null;
+
+    try {
+        await prisma.user.count();
+        dbStatus = "connected";
+    } catch (e: any) {
+        dbStatus = "failed";
+        dbError = e.message;
+    }
+
     try {
         // Try to initialize or check authConfig
         if (!authConfig.secret) authConfig.secret = process.env.AUTH_SECRET;
@@ -23,5 +35,7 @@ export async function GET() {
         DATABASE_URL: !!process.env.DATABASE_URL,
         VERCEL_URL: process.env.VERCEL_URL,
         authError,
+        dbStatus,
+        dbError,
     });
 }
