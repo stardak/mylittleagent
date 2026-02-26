@@ -14,6 +14,10 @@ import {
     Plus,
     Trash2,
     Building2,
+    ImageIcon,
+    Upload,
+    X,
+    Save,
 } from "lucide-react";
 
 import { ImproveWithAI } from "@/components/ui/improve-with-ai";
@@ -21,14 +25,18 @@ import { RateCardPreview, type RateCardData, type RatePackage } from "@/componen
 
 export default function RateCardPage() {
     const cardRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [data, setData] = useState<RateCardData | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [uploading, setUploading] = useState(false);
     const [targetBrand, setTargetBrand] = useState("");
 
     // Form state for packages
     const [packages, setPackages] = useState<RatePackage[]>([]);
+    const [location, setLocation] = useState("");
+    const [savingLocation, setSavingLocation] = useState(false);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -38,6 +46,7 @@ export default function RateCardPage() {
             const json = await res.json();
 
             setData(json);
+            setLocation(json.brand.location || "");
 
             // Handle if rateCard is empty or a string
             let parsedPackages: RatePackage[] = [];
@@ -91,6 +100,24 @@ export default function RateCardPage() {
         setPackages(packages.filter(pkg => pkg.id !== id));
     };
 
+    const saveLocation = async () => {
+        setSavingLocation(true);
+        try {
+            const res = await fetch("/api/onboarding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ step: "profile", data: { location } }),
+            });
+            if (!res.ok) throw new Error("Failed to save");
+            if (data) setData({ ...data, brand: { ...data.brand, location } });
+            toast.success("Location saved!");
+        } catch {
+            toast.error("Failed to save location");
+        } finally {
+            setSavingLocation(false);
+        }
+    };
+
     const saveRateCard = async () => {
         setSaving(true);
         try {
@@ -118,11 +145,17 @@ export default function RateCardPage() {
         if (!cardRef.current) return;
         setExporting(true);
         try {
-            const dataUrl = await toPng(cardRef.current, {
+            // html-to-image can fail on the first pass with CORS images;
+            // calling toPng twice (cache is warm on second attempt) is a known workaround.
+            const options = {
                 pixelRatio: 2,
                 cacheBust: true,
-                backgroundColor: "transparent",
-            });
+                backgroundColor: "#ffffff",
+            };
+            // First call to warm up the image cache
+            try { await toPng(cardRef.current, options); } catch { /* ignore first pass errors */ }
+            // Second call for the actual download
+            const dataUrl = await toPng(cardRef.current, options);
             const link = document.createElement("a");
             link.download = `${data?.brand.name?.replace(/\s+/g, "-") ?? "rate-card"}-rate-card.png`;
             link.href = dataUrl;
@@ -130,9 +163,52 @@ export default function RateCardPage() {
             toast.success("Rate card downloaded!");
         } catch (err) {
             console.error("Export error:", err);
-            toast.error("Failed to export rate card");
+            toast.error("Failed to export rate card. Please try again.");
         } finally {
             setExporting(false);
+        }
+    };
+
+    const uploadHeroImage = async (file: File) => {
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("field", "heroImageUrl");
+
+            const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Upload failed");
+            }
+
+            const { url } = await res.json();
+            if (data) {
+                setData({ ...data, brand: { ...data.brand, heroImageUrl: url } });
+            }
+            toast.success("Hero image uploaded!");
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Upload failed");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const removeHeroImage = async () => {
+        try {
+            const res = await fetch("/api/media-card/hero", {
+                method: "DELETE",
+            });
+            if (res.ok && data) {
+                setData({ ...data, brand: { ...data.brand, heroImageUrl: null } });
+                toast.success("Hero image removed");
+            }
+        } catch {
+            toast.error("Failed to remove image");
         }
     };
 
@@ -147,7 +223,7 @@ export default function RateCardPage() {
     if (!data) return null;
 
     // Use current packages for live preview
-    const liveData = { ...data, rateCard: packages };
+    const liveData = { ...data, brand: { ...data.brand, location }, rateCard: packages };
 
     return (
         <div className="container p-6 max-w-7xl mx-auto">
@@ -178,6 +254,104 @@ export default function RateCardPage() {
                             </p>
                         </div>
                     </div>
+
+                    {/* Location */}
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-sm font-semibold">
+                            <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                            Your Location
+                        </Label>
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="e.g. London, UK"
+                                value={location}
+                                onChange={(e) => setLocation(e.target.value)}
+                                className="bg-white"
+                                onKeyDown={(e) => { if (e.key === "Enter") saveLocation(); }}
+                            />
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={saveLocation}
+                                disabled={savingLocation}
+                                className="shrink-0"
+                            >
+                                {savingLocation ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Shown on the rate card header.</p>
+                    </div>
+
+                    {/* Hero Image Upload */}
+                    <Card className="border-border/50 shadow-sm">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                                <ImageIcon className="h-4 w-4 text-brand" />
+                                Hero Image
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) uploadHeroImage(file);
+                                }}
+                            />
+                            {data.brand.heroImageUrl ? (
+                                <div className="space-y-2">
+                                    <div className="relative rounded-xl overflow-hidden aspect-[16/9]">
+                                        <img
+                                            src={data.brand.heroImageUrl}
+                                            alt="Hero"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <button
+                                            onClick={removeHeroImage}
+                                            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploading}
+                                        className="w-full gap-2"
+                                    >
+                                        {uploading ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                            <Upload className="h-3.5 w-3.5" />
+                                        )}
+                                        Replace Image
+                                    </Button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={uploading}
+                                    className="w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center gap-2 text-muted-foreground hover:border-brand/40 hover:text-brand transition-colors cursor-pointer"
+                                >
+                                    {uploading ? (
+                                        <Loader2 className="h-6 w-6 animate-spin" />
+                                    ) : (
+                                        <Upload className="h-6 w-6" />
+                                    )}
+                                    <span className="text-xs font-medium">
+                                        {uploading ? "Uploading…" : "Upload Hero Image"}
+                                    </span>
+                                    <span className="text-xs opacity-60">
+                                        JPEG, PNG, WebP · Max 5MB
+                                    </span>
+                                </button>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     <Card className="border-border/50 shadow-sm">
                         <CardHeader className="pb-4">
@@ -287,7 +461,7 @@ export default function RateCardPage() {
                 {/* ── Right Column: Preview ── */}
                 <div className="flex-1 bg-zinc-100/50 rounded-3xl border border-zinc-200/60 p-8 flex items-start justify-center overflow-auto min-h-[800px]">
                     <div className="relative shadow-2xl rounded-[28px] overflow-hidden bg-white group">
-                        <RateCardPreview ref={cardRef} data={liveData} />
+                        <RateCardPreview ref={cardRef} data={liveData} onUploadClick={() => fileInputRef.current?.click()} />
                     </div>
                 </div>
             </div>

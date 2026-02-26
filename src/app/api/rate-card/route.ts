@@ -53,6 +53,7 @@ export async function GET() {
                 heroImageUrl: brandProfile.heroImageUrl,
                 primaryColor: brandProfile.primaryColor || "#ea3382",
                 audienceSummary: brandProfile.audienceSummary,
+                location: brandProfile.location,
             },
             platforms: platforms.map((p) => ({
                 type: p.type,
