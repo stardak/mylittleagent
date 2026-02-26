@@ -335,21 +335,6 @@ function SettingsContent() {
                                 </div>
                             )}
 
-                            <Separator />
-
-                            <div className="space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">One-time GCP Setup Required</p>
-                                <div className="text-sm text-muted-foreground space-y-1.5 bg-muted/30 rounded-lg p-4 border">
-                                    <p>Before connecting Gmail, complete these steps in <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-brand underline">Google Cloud Console</a>:</p>
-                                    <ol className="list-decimal list-inside space-y-1.5 mt-2">
-                                        <li>Enable the <strong>Gmail API</strong> for your project (<code className="text-xs bg-muted px-1 rounded">476133354291</code>)</li>
-                                        <li>OAuth consent screen → Scopes → add <code className="text-xs bg-muted px-1 rounded">gmail.send</code> and <code className="text-xs bg-muted px-1 rounded">gmail.readonly</code></li>
-                                        <li>Test users → add your email address</li>
-                                        <li>Credentials → OAuth 2.0 Client → add Authorised redirect URI:<br />
-                                            <code className="text-xs bg-muted px-1 rounded">https://mylittleagent.vercel.app/api/gmail/callback</code></li>
-                                    </ol>
-                                </div>
-                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
