@@ -1262,7 +1262,7 @@ function OutreachPageInner() {
                                 </div>
 
                                 {/* Email 2 — Follow-Up */}
-                                <div className={`border rounded-xl overflow-hidden ${!selected.email1SentAt ? "opacity-50 pointer-events-none" : ""}`}>
+                                <div className="border rounded-xl overflow-hidden">
                                     <div className="px-4 py-2.5 bg-muted/30 border-b flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Clock className="h-3.5 w-3.5 text-amber-500" />
@@ -1270,49 +1270,58 @@ function OutreachPageInner() {
                                                 Email 2 — Follow-Up (7 days)
                                             </h3>
                                         </div>
-                                        {selected.email2SentAt ? (
+                                        {selected.email2SentAt && (
                                             <Badge className="bg-green-50 text-green-700 text-[10px]">
                                                 Sent {formatDate(selected.email2SentAt)}
                                             </Badge>
-                                        ) : (
-                                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                                                {/* Toggle switch */}
-                                                <span
-                                                    onClick={async () => {
-                                                        if (!selected) return;
-                                                        const next = !selected.autoSendFollowUp;
-                                                        setSelected({ ...selected, autoSendFollowUp: next });
-                                                        await updateOutreach(selected.id, { autoSendFollowUp: next });
-                                                        if (next) {
-                                                            toast.success("Auto-send on", { description: selected.email2DueAt ? `Follow-up will be sent on ${formatDate(selected.email2DueAt)}` : "Follow-up will be sent 7 days after Email 1" });
-                                                        } else {
-                                                            toast.info("Auto-send off", { description: "You can send the follow-up manually." });
-                                                        }
-                                                    }}
-                                                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${selected.autoSendFollowUp
-                                                            ? "bg-green-500"
-                                                            : "bg-muted-foreground/30"
-                                                        }`}
-                                                >
-                                                    <span
-                                                        className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transform transition-transform ${selected.autoSendFollowUp ? "translate-x-3.5" : "translate-x-0.5"
-                                                            }`}
-                                                    />
-                                                </span>
-                                                <span className={`text-[10px] font-medium ${selected.autoSendFollowUp
-                                                        ? "text-green-600"
-                                                        : "text-muted-foreground"
-                                                    }`}>
-                                                    {selected.autoSendFollowUp
-                                                        ? selected.email2DueAt
-                                                            ? `Auto-send ${formatDate(selected.email2DueAt)}`
-                                                            : "Auto-send on"
-                                                        : "Auto-send off"}
-                                                </span>
-                                            </label>
                                         )}
                                     </div>
-                                    <div className="p-4">
+                                    <div className="p-4 space-y-3">
+                                        {/* Auto-send toggle — always shown until email is sent */}
+                                        {!selected.email2SentAt && (
+                                            <button
+                                                type="button"
+                                                onClick={async () => {
+                                                    if (!selected) return;
+                                                    const next = !selected.autoSendFollowUp;
+                                                    setSelected({ ...selected, autoSendFollowUp: next });
+                                                    await updateOutreach(selected.id, { autoSendFollowUp: next });
+                                                    if (next) {
+                                                        toast.success("Auto-send enabled", {
+                                                            description: selected.email2DueAt
+                                                                ? `Follow-up will be sent automatically on ${formatDate(selected.email2DueAt)}`
+                                                                : "Follow-up will be sent 7 days after Email 1 is sent.",
+                                                        });
+                                                    } else {
+                                                        toast.info("Auto-send disabled", { description: "Send the follow-up manually when you're ready." });
+                                                    }
+                                                }}
+                                                className={`w-full flex items-center justify-between rounded-lg px-4 py-3 border transition-colors ${selected.autoSendFollowUp
+                                                        ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                                                        : "bg-muted/40 border-border hover:bg-muted/60"
+                                                    }`}
+                                            >
+                                                <div className="text-left">
+                                                    <p className={`text-sm font-semibold ${selected.autoSendFollowUp ? "text-green-700 dark:text-green-400" : "text-foreground"}`}>
+                                                        Auto-send follow-up
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                                        {selected.autoSendFollowUp
+                                                            ? selected.email2DueAt
+                                                                ? `Scheduled for ${formatDate(selected.email2DueAt)}`
+                                                                : "Will send 7 days after Email 1"
+                                                            : "Send 7 days after Email 1 automatically via Gmail"}
+                                                    </p>
+                                                </div>
+                                                {/* Toggle pill */}
+                                                <span className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ml-4 ${selected.autoSendFollowUp ? "bg-green-500" : "bg-muted-foreground/30"
+                                                    }`}>
+                                                    <span className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transform transition-transform ${selected.autoSendFollowUp ? "translate-x-6" : "translate-x-1"
+                                                        }`} />
+                                                </span>
+                                            </button>
+                                        )}
+
                                         {!selected.email2Subject && !selected.email2Body ? (
                                             <p className="text-sm text-muted-foreground text-center py-2">
                                                 Follow-up will be generated with Email 1
