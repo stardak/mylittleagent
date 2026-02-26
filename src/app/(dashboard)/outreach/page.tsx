@@ -560,13 +560,23 @@ export default function OutreachPage() {
         <div className="p-8 space-y-6 overflow-x-hidden">
             {/* Header */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 shrink-0">
-                    <div>
-                        <h1 className="text-3xl font-heading font-semibold">Brand Outreach</h1>
-                        <p className="text-muted-foreground mt-1">
-                            {outreaches.length} outreach{outreaches.length !== 1 ? "es" : ""} · Pitch brands you want to work with
-                        </p>
-                    </div>
+                <div>
+                    <h1 className="text-3xl font-heading font-semibold">Brand Outreach</h1>
+                    <p className="text-muted-foreground mt-1 text-sm">
+                        {outreaches.length} deal{outreaches.length !== 1 ? "s" : ""} in pipeline
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={syncReplies}
+                        disabled={syncingReplies}
+                    >
+                        {syncingReplies ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquareReply className="h-3.5 w-3.5" />}
+                        Sync Replies
+                    </Button>
                     <Dialog open={showNewOutreach} onOpenChange={setShowNewOutreach}>
                         <DialogTrigger asChild>
                             <Button className="bg-brand hover:bg-brand/90 text-white gap-2">
@@ -684,233 +694,215 @@ export default function OutreachPage() {
                         </DialogContent>
                     </Dialog>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search outreach..."
-                            className="pl-10 w-64"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                    </div>
+            </div>
+
+            {/* Search + Filter Bar */}
+            <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[200px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search brands..."
+                        className="pl-9 h-9"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    {OUTREACH_STATUSES.map((s) => {
+                        const count = s.id === "all" ? outreaches.length : (statusCounts[s.id] || 0);
+                        const isActive = filterStatus === s.id;
+                        return (
+                            <button
+                                key={s.id}
+                                onClick={() => setFilterStatus(s.id)}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${isActive
+                                    ? "bg-brand text-white shadow-sm"
+                                    : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                    }`}
+                            >
+                                {s.label}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full min-w-[18px] text-center font-semibold ${isActive ? "bg-white/20 text-white" : "bg-background text-muted-foreground"
+                                    }`}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
             {/* ── AI Assistant Panel ──────────────────────────────── */}
-            {aiPanelOpen ? (
-                <div className="border rounded-2xl bg-card shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
-                        <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center">
-                                <Bot className="h-4 w-4 text-brand" />
-                            </div>
-                            <div>
-                                <p className="text-sm font-semibold">AI Outreach Assistant</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {isChatBusy ? "Thinking..." : "Ask me anything about brand outreach"}
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" onClick={() => { resetChat(); }} className="text-xs h-7 px-2 text-muted-foreground">Clear</Button>
-                            <button onClick={() => setAiPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
-                                <X className="h-4 w-4 text-muted-foreground" />
-                            </button>
-                        </div>
-                    </div>
-                    <div className="min-h-[140px] max-h-[380px] overflow-y-auto p-5 space-y-4">
-                        {chatMessages.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-24 text-center">
-                                <Sparkles className="h-6 w-6 text-brand/30 mb-2" />
-                                <p className="text-sm text-muted-foreground">Ask anything, or pick a prompt below.</p>
-                            </div>
-                        ) : chatMessages.map((m) => (
-                            <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
-                                {m.role === "assistant" && (
-                                    <div className="h-7 w-7 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
-                                        <Bot className="h-4 w-4 text-brand" />
-                                    </div>
-                                )}
-                                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-brand text-white rounded-br-md" : "bg-muted rounded-bl-md"
-                                    }`}>
-                                    {m.content || (
-                                        <span className="flex items-center gap-2">
-                                            {chatStatus === "acting"
-                                                ? <><Wrench className="h-3.5 w-3.5 text-brand animate-spin" /><span className="text-xs text-muted-foreground">Working...</span></>
-                                                : <><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} /></>}
-                                        </span>
-                                    )}
+            {
+                aiPanelOpen ? (
+                    <div className="border rounded-2xl bg-card shadow-sm overflow-hidden">
+                        <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center">
+                                    <Bot className="h-4 w-4 text-brand" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold">AI Outreach Assistant</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {isChatBusy ? "Thinking..." : "Ask me anything about brand outreach"}
+                                    </p>
                                 </div>
                             </div>
-                        ))}
-                        <div ref={chatEndRef} />
-                    </div>
-                    <div className="border-t p-4 bg-background">
-                        <div className="flex gap-2 items-end">
-                            <textarea
-                                ref={aiInputRef}
-                                value={aiInput}
-                                onChange={(e) => setAiInput(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiSend(); } }}
-                                placeholder="Ask about strategy, rates, negotiation..."
-                                disabled={isChatBusy}
-                                rows={1}
-                                className="flex-1 text-sm resize-none min-h-[44px] max-h-[120px] border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:opacity-50"
-                            />
-                            <Button onClick={handleAiSend} size="icon" disabled={isChatBusy || !aiInput.trim()} className="bg-brand hover:bg-brand/90 text-white shrink-0 h-10 w-10">
-                                {isChatBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <button
-                    onClick={() => setAiPanelOpen(true)}
-                    className="w-full flex items-center gap-4 px-5 py-4 border rounded-2xl bg-gradient-to-r from-brand/5 via-brand/3 to-transparent hover:from-brand/10 hover:via-brand/5 transition-all group text-left"
-                >
-                    <div className="h-10 w-10 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
-                        <Bot className="h-5 w-5 text-brand" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold">AI Outreach Assistant</p>
-                        <p className="text-xs text-muted-foreground">Ask for strategy advice, email reviews, negotiation help, and more</p>
-                    </div>
-                    <Sparkles className="h-4 w-4 text-brand/50 group-hover:text-brand transition-colors shrink-0" />
-                </button>
-            )}
-
-            {/* ── Prompt Grid ─────────────────────────────────────── */}
-            <div className="space-y-5">
-                {OUTREACH_PROMPTS.map((cat) => (
-                    <div key={cat.category}>
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="text-sm font-semibold">{cat.category}</span>
-                            <div className="flex-1 h-px bg-border" />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {cat.prompts.map((p) => (
-                                <button
-                                    key={p.title}
-                                    onClick={() => {
-                                        setAiPanelOpen(true);
-                                        setTimeout(() => sendOutreachMessage(p.message), 100);
-                                    }}
-                                    disabled={isChatBusy}
-                                    className={`text-left px-4 py-3 rounded-xl border transition-all group ${cat.color} disabled:opacity-50`}
-                                >
-                                    <p className="text-sm font-medium text-foreground group-hover:text-brand transition-colors">{p.title}</p>
+                            <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="sm" onClick={() => { resetChat(); }} className="text-xs h-7 px-2 text-muted-foreground">Clear</Button>
+                                <button onClick={() => setAiPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                                    <X className="h-4 w-4 text-muted-foreground" />
                                 </button>
+                            </div>
+                        </div>
+                        <div className="min-h-[140px] max-h-[380px] overflow-y-auto p-5 space-y-4">
+                            {chatMessages.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-24 text-center">
+                                    <Sparkles className="h-6 w-6 text-brand/30 mb-2" />
+                                    <p className="text-sm text-muted-foreground">Ask anything, or pick a prompt below.</p>
+                                </div>
+                            ) : chatMessages.map((m) => (
+                                <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+                                    {m.role === "assistant" && (
+                                        <div className="h-7 w-7 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                                            <Bot className="h-4 w-4 text-brand" />
+                                        </div>
+                                    )}
+                                    <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-brand text-white rounded-br-md" : "bg-muted rounded-bl-md"
+                                        }`}>
+                                        {m.content || (
+                                            <span className="flex items-center gap-2">
+                                                {chatStatus === "acting"
+                                                    ? <><Wrench className="h-3.5 w-3.5 text-brand animate-spin" /><span className="text-xs text-muted-foreground">Working...</span></>
+                                                    : <><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} /></>}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                             ))}
+                            <div ref={chatEndRef} />
+                        </div>
+                        {/* Quick prompts inside expanded panel */}
+                        {chatMessages.length === 0 && (
+                            <div className="border-t px-5 py-4 bg-muted/20">
+                                <div className="flex flex-wrap gap-2">
+                                    {OUTREACH_PROMPTS.flatMap((cat) => cat.prompts).slice(0, 6).map((p) => (
+                                        <button
+                                            key={p.title}
+                                            onClick={() => sendOutreachMessage(p.message)}
+                                            disabled={isChatBusy}
+                                            className="text-xs px-3 py-1.5 rounded-full border bg-background hover:bg-brand/5 hover:border-brand/30 hover:text-brand transition-all disabled:opacity-50 font-medium"
+                                        >
+                                            {p.title}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="border-t p-4 bg-background">
+                            <div className="flex gap-2 items-end">
+                                <textarea
+                                    ref={aiInputRef}
+                                    value={aiInput}
+                                    onChange={(e) => setAiInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiSend(); } }}
+                                    placeholder="Ask about strategy, rates, negotiation..."
+                                    disabled={isChatBusy}
+                                    rows={1}
+                                    className="flex-1 text-sm resize-none min-h-[44px] max-h-[120px] border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:opacity-50"
+                                />
+                                <Button onClick={handleAiSend} size="icon" disabled={isChatBusy || !aiInput.trim()} className="bg-brand hover:bg-brand/90 text-white shrink-0 h-10 w-10">
+                                    {isChatBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                ))}
-            </div>
-
-            {/* Pipeline Status Filter Bar */}
-            <div className="flex items-center gap-2 flex-wrap">
-                {OUTREACH_STATUSES.map((s) => {
-                    const count = s.id === "all" ? outreaches.length : (statusCounts[s.id] || 0);
-                    const isActive = filterStatus === s.id;
-                    return (
-                        <button
-                            key={s.id}
-                            onClick={() => setFilterStatus(s.id)}
-                            className={`
-                                flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all
-                                ${isActive
-                                    ? "bg-brand text-white shadow-sm"
-                                    : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                }
-                            `}
-                        >
-                            {s.label}
-                            <span className={`
-                                text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center
-                                ${isActive ? "bg-white/20 text-white" : "bg-background text-muted-foreground"}
-                            `}>
-                                {count}
-                            </span>
-                        </button>
-                    );
-                })}
-            </div>
+                ) : (
+                    <button
+                        onClick={() => setAiPanelOpen(true)}
+                        className="w-full flex items-center gap-3 px-5 py-3.5 border rounded-xl bg-gradient-to-r from-brand/5 to-transparent hover:from-brand/10 transition-all group text-left"
+                    >
+                        <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+                            <Bot className="h-4 w-4 text-brand" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">AI Outreach Assistant</p>
+                            <p className="text-xs text-muted-foreground">Strategy · Email review · Negotiation · Rate advice</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                            {["Find targets", "Review email", "Counter-offer"].map((label) => (
+                                <span key={label} className="hidden sm:inline-flex text-[10px] px-2 py-1 rounded-full bg-muted text-muted-foreground">{label}</span>
+                            ))}
+                            <Sparkles className="h-4 w-4 text-brand/50 group-hover:text-brand transition-colors" />
+                        </div>
+                    </button>
+                )
+            }
 
             {/* Outreach List */}
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            ) : outreaches.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="h-16 w-16 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
-                        <Send className="h-8 w-8 text-brand" />
+            {
+                loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg font-heading font-semibold">No outreach yet</h3>
-                    <p className="text-muted-foreground mt-1 max-w-sm">
-                        Start pitching brands you want to work with. Create your first outreach to get personalised emails and proposals.
-                    </p>
-                    <Button
-                        className="bg-brand hover:bg-brand/90 text-white gap-2 mt-4"
-                        onClick={() => setShowNewOutreach(true)}
-                    >
-                        <Plus className="h-4 w-4" />
-                        New Outreach
-                    </Button>
-                </div>
-            ) : (
-                <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="border-b bg-muted/50">
-                                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Brand</th>
-                                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Product / Service</th>
-                                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact</th>
-                                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Updated</th>
-                                <th className="w-12 px-4 py-3"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                            {outreaches.map((outreach) => (
-                                <tr
+                ) : outreaches.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="h-16 w-16 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
+                            <Send className="h-8 w-8 text-brand" />
+                        </div>
+                        <h3 className="text-lg font-heading font-semibold">No outreach yet</h3>
+                        <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+                            Start pitching brands you want to work with.
+                        </p>
+                        <Button
+                            className="bg-brand hover:bg-brand/90 text-white gap-2 mt-4"
+                            onClick={() => setShowNewOutreach(true)}
+                        >
+                            <Plus className="h-4 w-4" />
+                            New Outreach
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {outreaches.map((outreach) => {
+                            const initials = outreach.brandName.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+                            return (
+                                <button
                                     key={outreach.id}
-                                    className="hover:bg-muted/30 cursor-pointer transition-colors"
                                     onClick={() => openDetail(outreach)}
+                                    className="group text-left border rounded-2xl p-4 bg-card hover:shadow-md hover:border-brand/30 transition-all duration-200 flex flex-col gap-3"
                                 >
-                                    <td className="px-4 py-3">
-                                        <div>
-                                            <p className="font-medium text-sm">{outreach.brandName}</p>
+                                    {/* Card top row */}
+                                    <div className="flex items-start gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-brand/10 border border-brand/15 flex items-center justify-center shrink-0 text-sm font-bold text-brand">
+                                            {initials}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-sm leading-tight truncate group-hover:text-brand transition-colors">{outreach.brandName}</p>
                                             {outreach.brandIndustry && (
-                                                <p className="text-xs text-muted-foreground">{outreach.brandIndustry}</p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">{outreach.brandIndustry}</p>
                                             )}
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">
-                                        {outreach.product}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Badge className={`text-xs ${statusColor(outreach.status)}`}>
+                                        <Badge className={`text-[10px] shrink-0 ${statusColor(outreach.status)}`}>
                                             {statusLabel(outreach.status)}
                                         </Badge>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                                        {outreach.contactEmail}
-                                    </td>
-                                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                                        {timeAgo(outreach.updatedAt)}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <ChevronRight className="h-4 w-4" />
-                                        </Button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                    </div>
+
+                                    {/* Product */}
+                                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-1 bg-muted/40 rounded-lg px-3 py-2">
+                                        {outreach.product}
+                                    </p>
+
+                                    {/* Footer row */}
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground truncate max-w-[60%]">{outreach.contactEmail}</p>
+                                        <span className="text-[10px] text-muted-foreground/70">{timeAgo(outreach.updatedAt)}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )
+            }
 
             {/* Detail Sheet */}
             <Sheet open={showDetail} onOpenChange={setShowDetail}>
