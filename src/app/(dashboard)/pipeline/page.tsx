@@ -120,6 +120,9 @@ export default function PipelinePage() {
     const [dragOverStage, setDragOverStage] = useState<string | null>(null);
     const [createError, setCreateError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [newBrandFindingContact, setNewBrandFindingContact] = useState(false);
+    type NewBrandContactCandidate = { name: string | null; role: string | null; email: string | null; source: string; snippet: string; verified?: boolean };
+    const [newBrandContactResults, setNewBrandContactResults] = useState<NewBrandContactCandidate[]>([]);
 
     // New brand form state
     const [newBrand, setNewBrand] = useState({
@@ -458,25 +461,97 @@ export default function PipelinePage() {
                                         </select>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="brand-contact">Contact Name</Label>
-                                        <Input
-                                            id="brand-contact"
-                                            placeholder="Jane Smith"
-                                            value={newBrand.contactName}
-                                            onChange={(e) => setNewBrand({ ...newBrand, contactName: e.target.value })}
-                                        />
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Contact</Label>
+                                        <button
+                                            type="button"
+                                            disabled={!newBrand.name.trim() || newBrandFindingContact}
+                                            onClick={async () => {
+                                                if (!newBrand.name.trim()) return;
+                                                setNewBrandFindingContact(true);
+                                                setNewBrandContactResults([]);
+                                                try {
+                                                    const res = await fetch("/api/brands/find-contact", {
+                                                        method: "POST",
+                                                        headers: { "Content-Type": "application/json" },
+                                                        body: JSON.stringify({ brandName: newBrand.name, website: newBrand.website }),
+                                                    });
+                                                    const data = await res.json();
+                                                    if (res.ok && data.candidates?.length > 0) {
+                                                        setNewBrandContactResults(data.candidates);
+                                                    } else {
+                                                        toast.info("No contacts found", { description: "Try adding the website URL first for better results." });
+                                                    }
+                                                } catch {
+                                                    toast.error("Search failed");
+                                                } finally {
+                                                    setNewBrandFindingContact(false);
+                                                }
+                                            }}
+                                            className="flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                        >
+                                            {newBrandFindingContact ? (
+                                                <><Loader2 className="h-3 w-3 animate-spin" /> Searching...</>
+                                            ) : (
+                                                <><Sparkles className="h-3 w-3" /> Find with AI</>
+                                            )}
+                                        </button>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="brand-email">Contact Email</Label>
-                                        <Input
-                                            id="brand-email"
-                                            type="email"
-                                            placeholder="jane@brand.com"
-                                            value={newBrand.contactEmail}
-                                            onChange={(e) => setNewBrand({ ...newBrand, contactEmail: e.target.value })}
-                                        />
+
+                                    {/* AI results for new brand */}
+                                    {newBrandContactResults.length > 0 && (
+                                        <div className="rounded-lg border bg-muted/30 divide-y max-h-40 overflow-y-auto">
+                                            {newBrandContactResults.map((c, i) => (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewBrand({
+                                                            ...newBrand,
+                                                            contactName: c.name || newBrand.contactName,
+                                                            contactEmail: c.email || newBrand.contactEmail,
+                                                        });
+                                                        setNewBrandContactResults([]);
+                                                        toast.success("Contact pre-filled");
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 hover:bg-brand/5 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-medium truncate">
+                                                                {c.name || <span className="text-muted-foreground italic">Name unknown</span>}
+                                                                {c.verified && <span className="ml-1.5 text-[10px] text-green-600 font-semibold">✓ verified</span>}
+                                                            </p>
+                                                            {c.role && <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>}
+                                                            {c.email && <p className="text-[10px] text-brand truncate">{c.email}</p>}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="brand-contact">Name</Label>
+                                            <Input
+                                                id="brand-contact"
+                                                placeholder="Jane Smith"
+                                                value={newBrand.contactName}
+                                                onChange={(e) => setNewBrand({ ...newBrand, contactName: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="brand-email">Email</Label>
+                                            <Input
+                                                id="brand-email"
+                                                type="email"
+                                                placeholder="jane@brand.com"
+                                                value={newBrand.contactEmail}
+                                                onChange={(e) => setNewBrand({ ...newBrand, contactEmail: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
