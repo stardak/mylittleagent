@@ -3,7 +3,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { sendGmailMessage } from "@/lib/gmail";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const session = await auth();
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,7 +13,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const body = await req.json();
     const emailNumber: 1 | 2 = body.emailNumber ?? 1;
 
-    const outreach = await prisma.outreach.findUnique({ where: { id: params.id } });
+    const outreach = await prisma.outreach.findUnique({ where: { id } });
     if (!outreach) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const subject = emailNumber === 1 ? outreach.email1Subject : outreach.email2Subject;
@@ -45,7 +46,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         }
 
         const updated = await prisma.outreach.update({
-            where: { id: params.id },
+            where: { id },
             data: updateData,
         });
 

@@ -12,12 +12,13 @@ async function getWorkspaceId() {
 }
 
 // ── GET /api/invoices/[id] ─────────────────────────────────────────────────
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const workspaceId = await getWorkspaceId();
     if (!workspaceId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const invoice = await prisma.invoice.findFirst({
-        where: { id: params.id, workspaceId },
+        where: { id, workspaceId },
         include: {
             campaign: { select: { name: true, brand: { select: { name: true } } } },
         },
@@ -28,7 +29,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 }
 
 // ── PATCH /api/invoices/[id] ───────────────────────────────────────────────
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const workspaceId = await getWorkspaceId();
     if (!workspaceId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -44,7 +46,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     const invoice = await prisma.invoice.update({
-        where: { id: params.id },
+        where: { id },
         data,
         include: {
             campaign: { select: { name: true, brand: { select: { name: true } } } },
@@ -55,10 +57,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 // ── DELETE /api/invoices/[id] ──────────────────────────────────────────────
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const workspaceId = await getWorkspaceId();
     if (!workspaceId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    await prisma.invoice.delete({ where: { id: params.id } });
+    await prisma.invoice.delete({ where: { id } });
     return NextResponse.json({ success: true });
 }
