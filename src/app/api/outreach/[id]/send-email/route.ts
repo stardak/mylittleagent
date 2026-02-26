@@ -70,6 +70,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             data: updateData,
         });
 
+        // Auto-advance brand from Research → Outreach stage when Email 1 is sent
+        if (emailNumber === 1 && outreach.brandId) {
+            await prisma.brand.updateMany({
+                where: { id: outreach.brandId, pipelineStage: "research" },
+                data: { pipelineStage: "outreach" },
+            });
+        }
+
         return NextResponse.json({ success: true, outreach: updated, gmailMessageId: sent.messageId });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Failed to send email";
