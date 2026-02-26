@@ -64,6 +64,44 @@ export const authConfig: NextAuthConfig = {
             },
         }),
     ],
+    events: {
+        async createUser({ user }) {
+            // When a user is created via OAuth (like Google), they need a Workspace
+            if (user.id && user.name) {
+                const slug = user.name
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)/g, "");
+
+                await prisma.$transaction(async (tx) => {
+                    const workspace = await tx.workspace.create({
+                        data: {
+                            name: `${user.name}'s Workspace`,
+                            slug: `${slug}-${Date.now().toString(36)}`,
+                            plan: "trial",
+                            trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+                        },
+                    });
+
+                    await tx.membership.create({
+                        data: {
+                            userId: user.id as string,
+                            workspaceId: workspace.id,
+                            role: "owner",
+                        },
+                    });
+
+                    await tx.brandProfile.create({
+                        data: {
+                            workspaceId: workspace.id,
+                            brandName: user.name as string,
+                        },
+                    });
+                });
+                console.log(`[auth] Created default workspace for new OAuth user: ${user.email}`);
+            }
+        },
+    },
     callbacks: {
         async jwt({ token, user }) {
             if (user) {
@@ -87,11 +125,53 @@ export const authConfig: NextAuthConfig = {
                 session.user.id = token.id as string;
 
                 // Fetch active workspace
-                const membership = await prisma.membership.findFirst({
+                let membership = await prisma.membership.findFirst({
                     where: { userId: token.id as string },
                     include: { workspace: true },
                     orderBy: { createdAt: "asc" },
                 });
+
+                // LAZY CREATION FALLBACK
+                // If an OAuth user was created before we added the createUser event,
+                // they won't have a workspace. Create one for them now.
+                if (!membership && session.user.name) {
+                    const slug = session.user.name
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/(^-|-$)/g, "");
+
+                    try {
+                        await prisma.$transaction(async (tx) => {
+                            const newWorkspace = await tx.workspace.create({
+                                data: {
+                                    name: `${session.user.name}'s Workspace`,
+                                    slug: `${slug}-${Date.now().toString(36)}`,
+                                    plan: "trial",
+                                    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+                                },
+                            });
+
+                            membership = await tx.membership.create({
+                                data: {
+                                    userId: token.id as string,
+                                    workspaceId: newWorkspace.id,
+                                    role: "owner",
+                                },
+                                include: { workspace: true },
+                            }) as any;
+
+                            await tx.brandProfile.create({
+                                data: {
+                                    workspaceId: newWorkspace.id,
+                                    brandName: session.user.name as string,
+                                },
+                            });
+                        });
+                        console.log(`[auth] Lazily created workspace for existing OAuth user: ${session.user.email}`);
+                    } catch (e) {
+                        console.error("[auth] Failed to lazily create workspace", e);
+                    }
+                }
 
                 if (membership) {
                     (session as any).activeWorkspaceId = membership.workspaceId;
