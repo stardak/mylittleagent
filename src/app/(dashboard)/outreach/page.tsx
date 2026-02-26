@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { ImproveWithAI } from "@/components/ui/improve-with-ai";
 import { Card, CardContent } from "@/components/ui/card";
@@ -45,7 +45,100 @@ import {
     MessageSquareReply,
     ArrowRight,
     Copy,
+    Bot,
+    Wrench,
 } from "lucide-react";
+
+/* ─────────────────────────────────────────────────────────────── */
+/*  AI Outreach Prompts                                            */
+/* ─────────────────────────────────────────────────────────────── */
+const OUTREACH_PROMPTS = [
+    {
+        category: "🎯 Strategy",
+        color: "bg-violet-50 border-violet-200 hover:bg-violet-100",
+        prompts: [
+            { title: "Help me find brand targets", message: "I want to pitch brands but I'm not sure which ones to approach. Based on my profile, content categories, and audience, can you suggest types of brands I should be targeting and why they'd be a good fit?" },
+            { title: "Is this brand a good fit?", message: "I'm thinking of pitching a brand — can you help me assess whether they're a good fit for my audience and content? I'll tell you about them." },
+            { title: "What should my pitch angle be?", message: "I have a brand in mind that I want to pitch. Can you help me figure out the best angle and hook for my outreach? I'll share the details." },
+        ],
+    },
+    {
+        category: "✉️ Outreach Help",
+        color: "bg-blue-50 border-blue-200 hover:bg-blue-100",
+        prompts: [
+            { title: "Review my pitch email", message: "Can you review and improve my outreach email to a brand? I'll paste it in — please check the tone, value proposition, and call to action." },
+            { title: "I haven't heard back — what next?", message: "I sent a pitch email to a brand about a week ago and haven't heard back. Can you help me write a follow-up that's friendly but firm, and adds new value?" },
+            { title: "They replied — help me respond", message: "A brand replied to my pitch email and I need help crafting the best response. I'll share what they said." },
+        ],
+    },
+    {
+        category: "🤝 Negotiation",
+        color: "bg-amber-50 border-amber-200 hover:bg-amber-100",
+        prompts: [
+            { title: "They offered less than my rate", message: "A brand has come back with a lower offer than my rate. Can you help me write a confident counter-offer that doesn't burn the relationship? I'll share the numbers." },
+            { title: "What rate should I charge?", message: "I have an opportunity with a brand and I'm not sure what to charge. Can you help me think through my pricing based on my stats and what the deliverables involve?" },
+            { title: "Help me write a proposal", message: "I'm ready to send a formal proposal to a brand. Can you help me structure a compelling pitch proposal with deliverables, timeline, and pricing?" },
+            { title: "They want exclusivity — should I agree?", message: "A brand is asking for exclusivity in their deal. Can you help me understand the implications and how to negotiate fair terms or compensation?" },
+        ],
+    },
+];
+
+/* ─────────────────────────────────────────────────────────────── */
+/*  AI chat hook                                                   */
+/* ─────────────────────────────────────────────────────────────── */
+type OutreachChatMessage = { id: string; role: "user" | "assistant"; content: string };
+
+function useOutreachChat() {
+    const [messages, setMessages] = useState<OutreachChatMessage[]>([]);
+    const [conversationId, setConversationId] = useState<string | null>(null);
+    const [chatStatus, setChatStatus] = useState<"ready" | "streaming" | "acting">("ready");
+    const abortRef = useRef<AbortController | null>(null);
+
+    const sendOutreachMessage = useCallback(async (text: string) => {
+        const userMsg: OutreachChatMessage = { id: `user-${Date.now()}`, role: "user", content: text };
+        const updated = [...messages, userMsg];
+        setMessages(updated);
+        setChatStatus("streaming");
+        const aId = `asst-${Date.now()}`;
+        setMessages((prev) => [...prev, { id: aId, role: "assistant", content: "" }]);
+        try {
+            abortRef.current = new AbortController();
+            const res = await fetch("/api/agent/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: updated.map((m) => ({ role: m.role, content: m.content })), conversationId }),
+                signal: abortRef.current.signal,
+            });
+            const cid = res.headers.get("x-conversation-id");
+            if (cid) setConversationId(cid);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: "Something went wrong" }));
+                setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, content: `⚠️ ${err.error}` } : m));
+                setChatStatus("ready"); return;
+            }
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            let full = "";
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    full += decoder.decode(value, { stream: true });
+                    const captured = full;
+                    setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, content: captured } : m));
+                    setChatStatus(full.length > 0 ? "streaming" : "acting");
+                }
+            }
+        } catch (err: unknown) {
+            if ((err as Error)?.name !== "AbortError") {
+                setMessages((prev) => prev.map((m) => m.id === aId ? { ...m, content: "⚠️ Failed to get response." } : m));
+            }
+        } finally { setChatStatus("ready"); }
+    }, [messages, conversationId]);
+
+    const resetChat = useCallback(() => { abortRef.current?.abort(); setMessages([]); setConversationId(null); setChatStatus("ready"); }, []);
+    return { chatMessages: messages, sendOutreachMessage, chatStatus, resetChat };
+}
 
 // Types
 type Outreach = {
@@ -131,6 +224,14 @@ export default function OutreachPage() {
     // Workspace slug for media card link
     const [workspaceSlug, setWorkspaceSlug] = useState<string>("");
 
+    // AI chat state
+    const { chatMessages, sendOutreachMessage, chatStatus, resetChat } = useOutreachChat();
+    const [aiPanelOpen, setAiPanelOpen] = useState(false);
+    const [aiInput, setAiInput] = useState("");
+    const chatEndRef = useRef<HTMLDivElement>(null);
+    const aiInputRef = useRef<HTMLTextAreaElement>(null);
+    const isChatBusy = chatStatus === "streaming" || chatStatus === "acting";
+
     // AI generation states
     const [generatingEmails, setGeneratingEmails] = useState(false);
     const [generatingProposal, setGeneratingProposal] = useState(false);
@@ -160,12 +261,22 @@ export default function OutreachPage() {
 
     useEffect(() => {
         fetchOutreaches();
-        // Fetch workspace slug for media card link
         fetch("/api/media-card")
             .then((r) => r.ok ? r.json() : null)
             .then((d) => { if (d?.slug) setWorkspaceSlug(d.slug); })
             .catch(() => { });
     }, [fetchOutreaches]);
+
+    // Auto-scroll chat
+    useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
+    useEffect(() => { if (aiPanelOpen) setTimeout(() => aiInputRef.current?.focus(), 200); }, [aiPanelOpen]);
+
+    const handleAiSend = () => {
+        const t = aiInput.trim();
+        if (!t || isChatBusy) return;
+        setAiInput("");
+        sendOutreachMessage(t);
+    };
 
     const createOutreach = async () => {
         if (!newOutreach.brandName.trim() || !newOutreach.contactEmail.trim() || !newOutreach.product.trim()) return;
@@ -540,6 +651,116 @@ export default function OutreachPage() {
                         />
                     </div>
                 </div>
+            </div>
+
+            {/* ── AI Assistant Panel ──────────────────────────────── */}
+            {aiPanelOpen ? (
+                <div className="border rounded-2xl bg-card shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center">
+                                <Bot className="h-4 w-4 text-brand" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold">AI Outreach Assistant</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {isChatBusy ? "Thinking..." : "Ask me anything about brand outreach"}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="sm" onClick={() => { resetChat(); }} className="text-xs h-7 px-2 text-muted-foreground">Clear</Button>
+                            <button onClick={() => setAiPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                                <X className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="min-h-[140px] max-h-[380px] overflow-y-auto p-5 space-y-4">
+                        {chatMessages.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-24 text-center">
+                                <Sparkles className="h-6 w-6 text-brand/30 mb-2" />
+                                <p className="text-sm text-muted-foreground">Ask anything, or pick a prompt below.</p>
+                            </div>
+                        ) : chatMessages.map((m) => (
+                            <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
+                                {m.role === "assistant" && (
+                                    <div className="h-7 w-7 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
+                                        <Bot className="h-4 w-4 text-brand" />
+                                    </div>
+                                )}
+                                <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "bg-brand text-white rounded-br-md" : "bg-muted rounded-bl-md"
+                                    }`}>
+                                    {m.content || (
+                                        <span className="flex items-center gap-2">
+                                            {chatStatus === "acting"
+                                                ? <><Wrench className="h-3.5 w-3.5 text-brand animate-spin" /><span className="text-xs text-muted-foreground">Working...</span></>
+                                                : <><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "0ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "150ms" }} /><span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: "300ms" }} /></>}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={chatEndRef} />
+                    </div>
+                    <div className="border-t p-4 bg-background">
+                        <div className="flex gap-2 items-end">
+                            <textarea
+                                ref={aiInputRef}
+                                value={aiInput}
+                                onChange={(e) => setAiInput(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAiSend(); } }}
+                                placeholder="Ask about strategy, rates, negotiation..."
+                                disabled={isChatBusy}
+                                rows={1}
+                                className="flex-1 text-sm resize-none min-h-[44px] max-h-[120px] border rounded-lg px-3 py-2.5 bg-background focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand disabled:opacity-50"
+                            />
+                            <Button onClick={handleAiSend} size="icon" disabled={isChatBusy || !aiInput.trim()} className="bg-brand hover:bg-brand/90 text-white shrink-0 h-10 w-10">
+                                {isChatBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <button
+                    onClick={() => setAiPanelOpen(true)}
+                    className="w-full flex items-center gap-4 px-5 py-4 border rounded-2xl bg-gradient-to-r from-brand/5 via-brand/3 to-transparent hover:from-brand/10 hover:via-brand/5 transition-all group text-left"
+                >
+                    <div className="h-10 w-10 rounded-full bg-brand/10 flex items-center justify-center shrink-0">
+                        <Bot className="h-5 w-5 text-brand" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold">AI Outreach Assistant</p>
+                        <p className="text-xs text-muted-foreground">Ask for strategy advice, email reviews, negotiation help, and more</p>
+                    </div>
+                    <Sparkles className="h-4 w-4 text-brand/50 group-hover:text-brand transition-colors shrink-0" />
+                </button>
+            )}
+
+            {/* ── Prompt Grid ─────────────────────────────────────── */}
+            <div className="space-y-5">
+                {OUTREACH_PROMPTS.map((cat) => (
+                    <div key={cat.category}>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="text-sm font-semibold">{cat.category}</span>
+                            <div className="flex-1 h-px bg-border" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            {cat.prompts.map((p) => (
+                                <button
+                                    key={p.title}
+                                    onClick={() => {
+                                        setAiPanelOpen(true);
+                                        setTimeout(() => sendOutreachMessage(p.message), 100);
+                                    }}
+                                    disabled={isChatBusy}
+                                    className={`text-left px-4 py-3 rounded-xl border transition-all group ${cat.color} disabled:opacity-50`}
+                                >
+                                    <p className="text-sm font-medium text-foreground group-hover:text-brand transition-colors">{p.title}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {/* Pipeline Status Filter Bar */}
