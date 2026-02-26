@@ -179,7 +179,13 @@ Do NOT include any text outside the JSON. Do NOT use markdown code fences.`;
         });
 
         try {
-            const parsed = JSON.parse(result.text);
+            // Strip markdown code fences Claude sometimes adds despite instructions
+            const raw = result.text
+                .trim()
+                .replace(/^```(?:json)?\s*/i, "")
+                .replace(/\s*```\s*$/i, "")
+                .trim();
+            const parsed = JSON.parse(raw);
 
             // Save the generated emails to the outreach record
             await prisma.outreach.update({
