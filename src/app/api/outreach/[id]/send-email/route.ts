@@ -12,6 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const body = await req.json();
     const emailNumber: 1 | 2 = body.emailNumber ?? 1;
+    const includeMediaCard: boolean = body.includeMediaCard === true;
 
     const outreach = await prisma.outreach.findUnique({ where: { id } });
     if (!outreach) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -23,13 +24,32 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         return NextResponse.json({ error: "Email content not found — generate emails first" }, { status: 400 });
     }
 
+    // Look up workspace mediaPdfUrl for PDF attachment (Email 1 only)
+    let attachmentUrl: string | undefined;
+    let attachmentName: string | undefined;
+    if (includeMediaCard && emailNumber === 1) {
+        const membership = await prisma.membership.findFirst({ where: { userId: session.user.id } });
+        if (membership) {
+            const bp = await prisma.brandProfile.findUnique({
+                where: { workspaceId: membership.workspaceId },
+                select: { mediaPdfUrl: true, brandName: true },
+            });
+            if (bp?.mediaPdfUrl) {
+                attachmentUrl = bp.mediaPdfUrl;
+                attachmentName = `${bp.brandName ?? "media"}-card.pdf`;
+            }
+        }
+    }
+
     try {
         const sent = await sendGmailMessage(session.user.id, {
-            to: outreach.contactEmail,
+            to: outreach.contactEmail ?? "",
             subject,
             body: emailBody,
             // For email 2, reply to the original thread
             threadId: emailNumber === 2 ? (outreach.gmailThreadId ?? undefined) : undefined,
+            attachmentUrl,
+            attachmentName,
         });
 
         // Persist the thread ID and mark as sent

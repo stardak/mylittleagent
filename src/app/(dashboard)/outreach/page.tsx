@@ -241,6 +241,12 @@ function OutreachPageInner() {
     // Workspace slug for media card link
     const [workspaceSlug, setWorkspaceSlug] = useState<string>("");
 
+    // Media card PDF state
+    const [mediaPdfUrl, setMediaPdfUrl] = useState<string | null>(null);
+    const [includeMediaCardPdf, setIncludeMediaCardPdf] = useState(false);
+    const [uploadingPdf, setUploadingPdf] = useState(false);
+    const pdfFileRef = useRef<HTMLInputElement>(null);
+
     // AI chat state
     const { chatMessages, sendOutreachMessage, chatStatus, resetChat } = useOutreachChat();
     const [aiPanelOpen, setAiPanelOpen] = useState(false);
@@ -488,19 +494,42 @@ function OutreachPageInner() {
             const res = await fetch(`/api/outreach/${selected.id}/send-email`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ emailNumber }),
+                body: JSON.stringify({
+                    emailNumber,
+                    includeMediaCard: emailNumber === 1 && includeMediaCardPdf && !!mediaPdfUrl,
+                }),
             });
             const data = await res.json();
             if (res.ok) {
                 setSelected({ ...selected, ...data.outreach });
                 setOutreaches((prev) => prev.map((o) => o.id === selected.id ? { ...o, ...data.outreach } : o));
-                toast.success(`Email ${emailNumber} sent via Gmail!`, { description: `Delivered to ${selected.contactEmail}` });
+                const withPdf = emailNumber === 1 && includeMediaCardPdf && !!mediaPdfUrl ? " (with media card PDF)" : "";
+                toast.success(`Email ${emailNumber} sent via Gmail!`, { description: `Delivered to ${selected.contactEmail}${withPdf}` });
             } else {
                 toast.error("Failed to send", { description: data.error });
             }
         } catch {
             toast.error("Failed to send email");
         } finally { setSendingEmail(null); }
+    };
+
+    const uploadMediaCardPdf = async (file: File) => {
+        setUploadingPdf(true);
+        try {
+            const fd = new FormData();
+            fd.append("file", file);
+            const res = await fetch("/api/media-card/upload-pdf", { method: "POST", body: fd });
+            const data = await res.json();
+            if (res.ok) {
+                setMediaPdfUrl(data.url);
+                setIncludeMediaCardPdf(true);
+                toast.success("PDF uploaded", { description: "It will be attached to Email 1 when you send." });
+            } else {
+                toast.error("Upload failed", { description: data.error });
+            }
+        } catch {
+            toast.error("Upload failed");
+        } finally { setUploadingPdf(false); }
     };
 
     const syncReplies = async () => {
@@ -1236,6 +1265,51 @@ function OutreachPageInner() {
                                                     </Button>
                                                     {!selected.email1SentAt && (
                                                         <>
+                                                            {/* Media Card PDF attach row */}
+                                                            <div className="w-full flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2 mt-1">
+                                                                <input
+                                                                    ref={pdfFileRef}
+                                                                    type="file"
+                                                                    accept="application/pdf"
+                                                                    className="hidden"
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) uploadMediaCardPdf(file);
+                                                                        e.target.value = "";
+                                                                    }}
+                                                                />
+                                                                <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                                                {mediaPdfUrl ? (
+                                                                    <>
+                                                                        <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={includeMediaCardPdf}
+                                                                                onChange={(e) => setIncludeMediaCardPdf(e.target.checked)}
+                                                                                className="h-3.5 w-3.5 accent-brand"
+                                                                            />
+                                                                            <span className="text-xs text-foreground">Attach media card PDF</span>
+                                                                        </label>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => pdfFileRef.current?.click()}
+                                                                            className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                                                                        >
+                                                                            Replace
+                                                                        </button>
+                                                                    </>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={uploadingPdf}
+                                                                        onClick={() => pdfFileRef.current?.click()}
+                                                                        className="text-xs text-brand hover:text-brand/80 flex items-center gap-1.5 disabled:opacity-50"
+                                                                    >
+                                                                        {uploadingPdf ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                                                                        Upload & attach media card PDF
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                             <Button
                                                                 size="sm"
                                                                 variant="outline"
@@ -1297,8 +1371,8 @@ function OutreachPageInner() {
                                                     }
                                                 }}
                                                 className={`w-full flex items-center justify-between rounded-lg px-4 py-3 border transition-colors ${selected.autoSendFollowUp
-                                                        ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
-                                                        : "bg-muted/40 border-border hover:bg-muted/60"
+                                                    ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                                                    : "bg-muted/40 border-border hover:bg-muted/60"
                                                     }`}
                                             >
                                                 <div className="text-left">

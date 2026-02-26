@@ -133,6 +133,7 @@ model BrandProfile {
   // Visuals
   logoUrl            String?
   heroImageUrl       String?   // Hero/cover image for media card
+  mediaPdfUrl        String?   // Uploaded media card PDF for email attachments
   primaryColor       String?   @default("#1A9E96")
   headingFont        String?   @default("Recoleta")
   // Rate card (JSON for flexibility)

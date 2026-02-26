@@ -44,8 +44,10 @@ export async function getGmailClient(userId: string) {
     return { gmail: google.gmail({ version: "v1", auth: oauth2 }), account };
 }
 
-/** Build a raw RFC 2822 email message (base64url encoded). */
-export function buildRawEmail({
+/** Build a raw RFC 2822 email message (base64url encoded).
+ * Supports an optional PDF attachment via multipart/mixed.
+ */
+export async function buildRawEmail({
     from,
     to,
     subject,
@@ -53,6 +55,8 @@ export function buildRawEmail({
     threadId,
     inReplyTo,
     references,
+    attachmentUrl,
+    attachmentName,
 }: {
     from: string;
     to: string;
@@ -61,7 +65,51 @@ export function buildRawEmail({
     threadId?: string;
     inReplyTo?: string;
     references?: string;
-}): { raw: string; threadId?: string } {
+    attachmentUrl?: string;
+    attachmentName?: string;
+}): Promise<{ raw: string; threadId?: string }> {
+    if (attachmentUrl) {
+        // ── Multipart/mixed with PDF attachment ──────────────────────────────
+        const boundary = `mla_boundary_${Date.now()}`;
+        const headers = [
+            `From: ${from}`,
+            `To: ${to}`,
+            `Subject: ${subject}`,
+            "MIME-Version: 1.0",
+            `Content-Type: multipart/mixed; boundary="${boundary}"`,
+        ];
+        if (inReplyTo) headers.push(`In-Reply-To: ${inReplyTo}`);
+        if (references) headers.push(`References: ${references}`);
+
+        // Fetch the PDF
+        const pdfRes = await fetch(attachmentUrl);
+        const pdfBuffer = await pdfRes.arrayBuffer();
+        const pdfBase64 = Buffer.from(pdfBuffer).toString("base64");
+        const fileName = attachmentName || attachmentUrl.split("/").pop() || "media-card.pdf";
+
+        const message = [
+            ...headers,
+            "",
+            `--${boundary}`,
+            "Content-Type: text/plain; charset=UTF-8",
+            "Content-Transfer-Encoding: 7bit",
+            "",
+            body,
+            "",
+            `--${boundary}`,
+            `Content-Type: application/pdf; name="${fileName}"`,
+            "Content-Transfer-Encoding: base64",
+            `Content-Disposition: attachment; filename="${fileName}"`,
+            "",
+            pdfBase64,
+            "",
+            `--${boundary}--`,
+        ].join("\r\n");
+
+        return { raw: Buffer.from(message).toString("base64url"), threadId };
+    }
+
+    // ── Plain text (no attachment) ──────────────────────────────────────────
     const headers = [
         `From: ${from}`,
         `To: ${to}`,
@@ -73,8 +121,7 @@ export function buildRawEmail({
     if (references) headers.push(`References: ${references}`);
 
     const message = [...headers, "", body].join("\r\n");
-    const raw = Buffer.from(message).toString("base64url");
-    return { raw, threadId };
+    return { raw: Buffer.from(message).toString("base64url"), threadId };
 }
 
 /** Send an email via Gmail API. Returns the sent message details. */
@@ -87,6 +134,8 @@ export async function sendGmailMessage(
         threadId?: string;
         inReplyTo?: string;
         references?: string;
+        attachmentUrl?: string;
+        attachmentName?: string;
     }
 ) {
     const result = await getGmailClient(userId);
@@ -97,7 +146,7 @@ export async function sendGmailMessage(
     const profile = await gmail.users.getProfile({ userId: "me" });
     const from = profile.data.emailAddress!;
 
-    const { raw, threadId } = buildRawEmail({ from, ...params });
+    const { raw, threadId } = await buildRawEmail({ from, ...params });
 
     const requestBody: { raw: string; threadId?: string } = { raw };
     if (threadId) requestBody.threadId = threadId;

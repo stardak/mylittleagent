@@ -128,6 +128,23 @@ function platformIconUrl(type: string): string | null {
     return urls[type.toLowerCase()] || null;
 }
 
+function platformUrl(type: string, handle: string): string | null {
+    // Strip leading @ if present
+    const h = handle.startsWith("@") ? handle.slice(1) : handle;
+    const map: Record<string, (h: string) => string | null> = {
+        youtube: (h) => `https://youtube.com/@${h}`,
+        instagram: (h) => `https://instagram.com/${h}`,
+        tiktok: (h) => `https://tiktok.com/@${h}`,
+        twitter: (h) => `https://x.com/${h}`,
+        facebook: (h) => `https://facebook.com/${h}`,
+        linkedin: (h) => `https://linkedin.com/in/${h}`,
+        blog: (el) => el.startsWith("http") ? el : `https://${el}`,
+        podcast: (el) => el.startsWith("http") ? el : null,
+    };
+    const fn = map[type.toLowerCase()];
+    return fn ? fn(h) : null;
+}
+
 // ── Theme Palettes ───────────────────────────────────────────────────────────
 
 function getThemeStyles(theme: MediaCardTheme, brandColor: string) {
@@ -366,57 +383,81 @@ export const MediaCardPreview = forwardRef<HTMLDivElement, MediaCardPreviewProps
                         <div>
                             <SectionLabel color={t.textMuted}>Platforms</SectionLabel>
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                {data.platforms.map((p, i) => (
-                                    <div
-                                        key={i}
-                                        style={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 12,
-                                            background: t.glassBg,
-                                            border: `1px solid ${t.glassBorder}`,
-                                            borderRadius: 14,
-                                            padding: "11px 14px",
-                                        }}
-                                    >
-                                        {platformIconUrl(p.type) ? (
-                                            <div style={{ display: 'flex', width: 24, height: 24, flexShrink: 0 }}>
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img src={platformIconUrl(p.type)!} alt={platformLabel(p.type)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                            </div>
-                                        ) : (
-                                            <span style={{ fontSize: 20, lineHeight: 1 }}>{platformEmoji(p.type)}</span>
-                                        )}
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
-                                                {platformLabel(p.type)}
-                                            </div>
-                                            <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
-                                                {p.handle}
-                                            </div>
-                                        </div>
-                                        <div style={{ textAlign: "right", marginRight: 4 }}>
-                                            <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>
-                                                {formatNumber(p.followers)}
-                                            </div>
-                                        </div>
-                                        {p.engagementRate != null && (
+                                {data.platforms.map((p, i) => {
+                                    const href = platformUrl(p.type, p.handle);
+                                    const Tag = href ? "a" : "div";
+                                    const linkProps = href ? {
+                                        href,
+                                        target: "_blank" as const,
+                                        rel: "noopener noreferrer",
+                                        style: { textDecoration: "none", color: "inherit", display: "flex", cursor: "pointer" as const, opacity: 1, transition: "opacity 0.15s" },
+                                    } : { style: { display: "flex" } };
+                                    return (
+                                        <Tag key={i} {...(linkProps as any)}
+                                            onMouseOver={(e: React.MouseEvent<HTMLElement>) => { if (href) e.currentTarget.style.opacity = "0.85"; }}
+                                            onMouseOut={(e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.opacity = "1"; }}
+                                        >
                                             <div
                                                 style={{
-                                                    background: t.statBg,
-                                                    border: `1px solid ${t.statBorder}`,
-                                                    borderRadius: 10,
-                                                    padding: "5px 10px",
-                                                    fontSize: 12,
-                                                    fontWeight: 800,
-                                                    color: t.accent,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    gap: 12,
+                                                    background: t.glassBg,
+                                                    border: `1px solid ${t.glassBorder}`,
+                                                    borderRadius: 14,
+                                                    padding: "11px 14px",
+                                                    flex: 1,
                                                 }}
                                             >
-                                                {p.engagementRate}%
+                                                {platformIconUrl(p.type) ? (
+                                                    <div style={{ display: 'flex', width: 24, height: 24, flexShrink: 0 }}>
+                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                        <img src={platformIconUrl(p.type)!} alt={platformLabel(p.type)} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontSize: 20, lineHeight: 1 }}>{platformEmoji(p.type)}</span>
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>
+                                                        {platformLabel(p.type)}
+                                                    </div>
+                                                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>
+                                                        {p.handle}
+                                                    </div>
+                                                </div>
+                                                <div style={{ textAlign: "right", marginRight: 4 }}>
+                                                    <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>
+                                                        {formatNumber(p.followers)}
+                                                    </div>
+                                                </div>
+                                                {p.engagementRate != null && (
+                                                    <div
+                                                        style={{
+                                                            background: t.statBg,
+                                                            border: `1px solid ${t.statBorder}`,
+                                                            borderRadius: 10,
+                                                            padding: "5px 10px",
+                                                            fontSize: 12,
+                                                            fontWeight: 800,
+                                                            color: t.accent,
+                                                        }}
+                                                    >
+                                                        {p.engagementRate}%
+                                                    </div>
+                                                )}
+                                                {href && (
+                                                    <div style={{ flexShrink: 0, opacity: 0.4, marginLeft: 4 }}>
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                                            <polyline points="15 3 21 3 21 9" />
+                                                            <line x1="10" y1="14" x2="21" y2="3" />
+                                                        </svg>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
+                                        </Tag>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
