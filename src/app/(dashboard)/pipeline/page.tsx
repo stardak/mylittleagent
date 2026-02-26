@@ -110,6 +110,8 @@ export default function PipelinePage() {
     const [showDetail, setShowDetail] = useState(false);
     const [isEditingNotes, setIsEditingNotes] = useState(false);
     const [editNotesValue, setEditNotesValue] = useState("");
+    const [isEditingContact, setIsEditingContact] = useState(false);
+    const [editContact, setEditContact] = useState({ name: "", email: "", phone: "", website: "" });
     const [draggedBrand, setDraggedBrand] = useState<string | null>(null);
     const [dragOverStage, setDragOverStage] = useState<string | null>(null);
     const [createError, setCreateError] = useState<string | null>(null);
@@ -341,6 +343,35 @@ export default function PipelinePage() {
         } catch (error) {
             console.error("Failed to update notes:", error);
             toast.error("Failed to update notes");
+        }
+    };
+
+    const updateBrandContact = async (brandId: string, contact: { name: string; email: string; phone: string; website: string }) => {
+        try {
+            const res = await fetch(`/api/brands/${brandId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contactName: contact.name || null,
+                    contactEmail: contact.email || null,
+                    contactPhone: contact.phone || null,
+                    website: contact.website || null,
+                }),
+            });
+            if (!res.ok) throw new Error("Failed");
+
+            const patch = {
+                contactName: contact.name || null,
+                contactEmail: contact.email || null,
+                contactPhone: contact.phone || null,
+                website: contact.website || null,
+            };
+            setBrands(brands.map((b) => b.id === brandId ? { ...b, ...patch } : b));
+            if (selectedBrand?.id === brandId) setSelectedBrand({ ...selectedBrand, ...patch });
+            setIsEditingContact(false);
+            toast.success("Contact updated");
+        } catch {
+            toast.error("Failed to update contact");
         }
     };
 
@@ -813,58 +844,129 @@ export default function PipelinePage() {
 
                             <div className="px-6 pb-6 space-y-5 mt-1">
                                 {/* Contact Card */}
-                                {(selectedBrand.contactName || selectedBrand.contactEmail || selectedBrand.contactPhone || selectedBrand.website) && (
-                                    <div className="border rounded-xl overflow-hidden">
-                                        <div className="px-4 py-2.5 bg-muted/30 border-b">
-                                            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h3>
-                                        </div>
-                                        <div className="p-4 space-y-3">
-                                            {selectedBrand.contactName && (
-                                                <div className="flex items-center gap-3 text-sm">
-                                                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                                        <User className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-medium">{selectedBrand.contactName}</p>
-                                                        {selectedBrand.contactTitle && (
-                                                            <p className="text-xs text-muted-foreground">{selectedBrand.contactTitle}</p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-                                            {selectedBrand.contactEmail && (
-                                                <div className="flex items-center gap-3 text-sm">
-                                                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                                        <Mail className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <a href={`mailto:${selectedBrand.contactEmail}`} className="text-brand hover:underline text-sm">
-                                                        {selectedBrand.contactEmail}
-                                                    </a>
-                                                </div>
-                                            )}
-                                            {selectedBrand.contactPhone && (
-                                                <div className="flex items-center gap-3 text-sm">
-                                                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                                        <Phone className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <span>{selectedBrand.contactPhone}</span>
-                                                </div>
-                                            )}
-                                            {selectedBrand.website && (
-                                                <div className="flex items-center gap-3 text-sm">
-                                                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                                                        <Globe className="h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <a href={selectedBrand.website} target="_blank" rel="noopener noreferrer"
-                                                        className="text-brand hover:underline flex items-center gap-1 text-sm truncate">
-                                                        {selectedBrand.website.replace(/^https?:\/\//, "")}
-                                                        <ExternalLink className="h-3 w-3 shrink-0" />
-                                                    </a>
-                                                </div>
-                                            )}
-                                        </div>
+                                <div className="border rounded-xl overflow-hidden">
+                                    <div className="px-4 py-2.5 bg-muted/30 border-b flex items-center justify-between">
+                                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h3>
+                                        {!isEditingContact && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 text-xs text-brand gap-1"
+                                                onClick={() => {
+                                                    setEditContact({
+                                                        name: selectedBrand.contactName || "",
+                                                        email: selectedBrand.contactEmail || "",
+                                                        phone: selectedBrand.contactPhone || "",
+                                                        website: selectedBrand.website || "",
+                                                    });
+                                                    setIsEditingContact(true);
+                                                }}
+                                            >
+                                                {(selectedBrand.contactName || selectedBrand.contactEmail) ? "Edit" : "Add Contact"}
+                                            </Button>
+                                        )}
                                     </div>
-                                )}
+                                    <div className="p-4">
+                                        {isEditingContact ? (
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Name</label>
+                                                        <Input
+                                                            placeholder="Jane Smith"
+                                                            value={editContact.name}
+                                                            onChange={(e) => setEditContact({ ...editContact, name: e.target.value })}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Email *</label>
+                                                        <Input
+                                                            type="email"
+                                                            placeholder="jane@brand.com"
+                                                            value={editContact.email}
+                                                            onChange={(e) => setEditContact({ ...editContact, email: e.target.value })}
+                                                            className="h-8 text-sm"
+                                                            autoFocus
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Phone</label>
+                                                        <Input
+                                                            placeholder="+44 7700 900000"
+                                                            value={editContact.phone}
+                                                            onChange={(e) => setEditContact({ ...editContact, phone: e.target.value })}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs font-medium text-muted-foreground">Website</label>
+                                                        <Input
+                                                            placeholder="https://brand.com"
+                                                            value={editContact.website}
+                                                            onChange={(e) => setEditContact({ ...editContact, website: e.target.value })}
+                                                            className="h-8 text-sm"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-end gap-2 pt-1">
+                                                    <Button variant="outline" size="sm" onClick={() => setIsEditingContact(false)}>Cancel</Button>
+                                                    <Button size="sm" onClick={() => updateBrandContact(selectedBrand.id, editContact)}>Save</Button>
+                                                </div>
+                                            </div>
+                                        ) : (selectedBrand.contactName || selectedBrand.contactEmail || selectedBrand.contactPhone || selectedBrand.website) ? (
+                                            <div className="space-y-3">
+                                                {selectedBrand.contactName && (
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                                            <User className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{selectedBrand.contactName}</p>
+                                                            {selectedBrand.contactTitle && (
+                                                                <p className="text-xs text-muted-foreground">{selectedBrand.contactTitle}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {selectedBrand.contactEmail && (
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                                            <Mail className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                        <a href={`mailto:${selectedBrand.contactEmail}`} className="text-brand hover:underline text-sm">
+                                                            {selectedBrand.contactEmail}
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {selectedBrand.contactPhone && (
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                                            <Phone className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                        <span>{selectedBrand.contactPhone}</span>
+                                                    </div>
+                                                )}
+                                                {selectedBrand.website && (
+                                                    <div className="flex items-center gap-3 text-sm">
+                                                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                                                            <Globe className="h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                        <a href={selectedBrand.website} target="_blank" rel="noopener noreferrer"
+                                                            className="text-brand hover:underline flex items-center gap-1 text-sm truncate">
+                                                            {selectedBrand.website.replace(/^https?:\/\//, "")}
+                                                            <ExternalLink className="h-3 w-3 shrink-0" />
+                                                        </a>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground italic text-center py-2">No contact info yet — click "Add Contact" to add an email.</p>
+                                        )}
+                                    </div>
+                                </div>
 
                                 {/* Pipeline Stage Selector */}
                                 <div className="border rounded-xl overflow-hidden">
