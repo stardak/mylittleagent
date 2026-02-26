@@ -593,5 +593,93 @@ export function makeAgentTools(workspaceId: string, userId?: string) {
                 };
             },
         }),
+        // ─── OUTREACH TOOLS ───────────────────────────────────────────
+
+        get_outreach_list: tool({
+            description:
+                "Get outreach records from the Brand Outreach page. Use when the user mentions outreach, wants to see or save a draft email for a brand pitch. Returns IDs needed by save_outreach_draft.",
+            inputSchema: z.object({
+                brandName: z.string().optional().describe("Filter by brand name (partial match)"),
+                status: z.string().optional().describe("Filter by status: draft, sent, followed_up, replied, proposal_sent"),
+            }),
+            execute: async ({ brandName, status }: { brandName?: string; status?: string }) => {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const where: any = { workspaceId };
+                if (brandName) where.brandName = { contains: brandName, mode: "insensitive" };
+                if (status) where.status = status;
+
+                const outreaches = await prisma.outreach.findMany({
+                    where,
+                    orderBy: { updatedAt: "desc" },
+                    take: 20,
+                    select: {
+                        id: true,
+                        brandName: true,
+                        contactEmail: true,
+                        status: true,
+                        email1Subject: true,
+                        email2Subject: true,
+                        updatedAt: true,
+                    },
+                });
+
+                return {
+                    count: outreaches.length,
+                    outreaches: outreaches.map((o) => ({
+                        id: o.id,
+                        brandName: o.brandName,
+                        contactEmail: o.contactEmail,
+                        status: o.status,
+                        email1Subject: o.email1Subject ?? "(no draft)",
+                        email2Subject: o.email2Subject ?? "(no draft)",
+                    })),
+                };
+            },
+        }),
+
+        save_outreach_draft: tool({
+            description:
+                "Save an email draft to a Brand Outreach record. Use this — NOT draft_email — when the user asks to save, write, or draft an outreach/pitch email. Call get_outreach_list first to find the outreach ID.",
+            inputSchema: z.object({
+                outreachId: z.string().describe("Outreach record ID (from get_outreach_list)"),
+                emailNumber: z.enum(["1", "2"]).describe("'1' = initial cold email, '2' = follow-up email"),
+                subject: z.string().describe("Email subject line"),
+                body: z.string().describe("Full email body text"),
+            }),
+            execute: async ({
+                outreachId,
+                emailNumber,
+                subject,
+                body,
+            }: {
+                outreachId: string;
+                emailNumber: "1" | "2";
+                subject: string;
+                body: string;
+            }) => {
+                const outreach = await prisma.outreach.findFirst({
+                    where: { id: outreachId, workspaceId },
+                    select: { id: true, brandName: true },
+                });
+
+                if (!outreach) {
+                    return { error: `No outreach found with ID "${outreachId}". Use get_outreach_list to find the correct ID.` };
+                }
+
+                const data = emailNumber === "1"
+                    ? { email1Subject: subject, email1Body: body }
+                    : { email2Subject: subject, email2Body: body };
+
+                await prisma.outreach.update({ where: { id: outreachId }, data });
+
+                return {
+                    success: true,
+                    brandName: outreach.brandName,
+                    emailNumber,
+                    subject,
+                    message: `Email ${emailNumber} draft saved to your ${outreach.brandName} outreach. It will appear on the Brand Outreach page when you open that record.`,
+                };
+            },
+        }),
     };
 }
