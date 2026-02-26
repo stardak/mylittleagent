@@ -69,9 +69,6 @@ export async function POST(req: Request) {
         if (!body.contactEmail?.trim()) {
             return NextResponse.json({ error: "Contact email is required" }, { status: 400 });
         }
-        if (!body.product?.trim()) {
-            return NextResponse.json({ error: "Product/service is required" }, { status: 400 });
-        }
 
         // Optionally link to an existing Brand record
         let brandId: string | null = null;

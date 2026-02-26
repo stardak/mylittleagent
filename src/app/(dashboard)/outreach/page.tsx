@@ -1094,7 +1094,32 @@ function OutreachPageInner() {
                                             </div>
                                             <div>
                                                 <p className="text-xs text-muted-foreground">Product / Service</p>
-                                                <p className="text-sm font-medium">{selected.product}</p>
+                                                {selected.product ? (
+                                                    <p
+                                                        className="text-sm font-medium cursor-pointer hover:text-brand transition-colors"
+                                                        title="Click to edit"
+                                                        onClick={() => {
+                                                            const val = prompt("What product or service do you want to promote?", selected.product);
+                                                            if (val !== null && val.trim()) {
+                                                                updateOutreach(selected.id, { product: val.trim() });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {selected.product}
+                                                    </p>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => {
+                                                            const val = prompt("What product or service do you want to promote? (required for email generation)", "");
+                                                            if (val !== null && val.trim()) {
+                                                                updateOutreach(selected.id, { product: val.trim() });
+                                                            }
+                                                        }}
+                                                        className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 hover:underline"
+                                                    >
+                                                        <span>⚠ Add product / service</span>
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                         {selected.brandUrl && (
@@ -1131,10 +1156,16 @@ function OutreachPageInner() {
                                     </div>
                                     <div className="p-4">
                                         {!selected.email1Subject && !selected.email1Body ? (
-                                            <div className="text-center py-4">
-                                                <p className="text-sm text-muted-foreground mb-3">Generate a personalised outreach email using AI</p>
+                                            <div className="text-center py-4 space-y-3">
+                                                {!selected.product && (
+                                                    <div className="text-xs bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-lg px-3 py-2 flex items-center gap-2">
+                                                        <span>⚠</span>
+                                                        <span>Add a <strong>product / service</strong> in the brief above before generating</span>
+                                                    </div>
+                                                )}
+                                                <p className="text-sm text-muted-foreground">Generate a personalised outreach email using AI</p>
                                                 <Button
-                                                    onClick={generateEmails}
+                                                    onClick={!selected.product ? () => toast.warning("Add a product / service first", { description: "Click '⚠ Add product / service' in the Brand Brief section above." }) : generateEmails}
                                                     disabled={generatingEmails}
                                                     className="bg-brand hover:bg-brand/90 text-white gap-2"
                                                 >
