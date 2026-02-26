@@ -13,6 +13,20 @@ async function getWorkspaceId(userId: string) {
     return membership?.workspaceId ?? null;
 }
 
+export async function GET(_req: Request) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const workspaceId = await getWorkspaceId(session.user.id);
+    if (!workspaceId) return NextResponse.json({ url: null });
+
+    const rows = await prisma.$queryRaw<{ mediaPdfUrl: string | null }[]>`
+        SELECT "mediaPdfUrl" FROM "BrandProfile" WHERE "workspaceId" = ${workspaceId} LIMIT 1
+    `;
+    return NextResponse.json({ url: rows[0]?.mediaPdfUrl ?? null });
+}
+
 export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user?.id) {

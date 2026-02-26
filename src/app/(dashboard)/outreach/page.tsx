@@ -330,6 +330,16 @@ function OutreachPageInner() {
             .then((r) => r.ok ? r.json() : null)
             .then((d) => { if (d?.slug) setWorkspaceSlug(d.slug); })
             .catch(() => { });
+        // Load previously uploaded media card PDF
+        fetch("/api/media-card/upload-pdf")
+            .then((r) => r.ok ? r.json() : null)
+            .then((d) => {
+                if (d?.url) {
+                    setMediaPdfUrl(d.url);
+                    setIncludeMediaCardPdf(true);
+                }
+            })
+            .catch(() => { });
     }, [fetchOutreaches]);
 
     // Auto-open outreach from ?open= param (navigated from Pipeline)
