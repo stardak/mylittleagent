@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -260,6 +261,45 @@ export default function PipelinePage() {
     };
 
     const [deleting, setDeleting] = useState(false);
+    const [creatingOutreach, setCreatingOutreach] = useState(false);
+    const router = useRouter();
+
+    const startOutreach = async (brand: Brand, mode: "pitch" | "email") => {
+        if (!brand.contactEmail) {
+            toast.error("No contact email", { description: "Add a contact email to this brand first." });
+            return;
+        }
+        setCreatingOutreach(true);
+        try {
+            const res = await fetch("/api/outreach", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    brandName: brand.name,
+                    contactEmail: brand.contactEmail,
+                    brandIndustry: brand.industry || "",
+                    brandUrl: brand.website || "",
+                    product: "",
+                    fitReason: "",
+                }),
+            });
+            if (res.ok) {
+                const outreach = await res.json();
+                toast.success(
+                    mode === "pitch" ? "Outreach created — generate your pitch!" : "Outreach created — send your email!",
+                    { description: `Opened ${brand.name} in Brand Outreach.` }
+                );
+                router.push(`/outreach?open=${outreach.id}`);
+            } else {
+                const data = await res.json().catch(() => ({}));
+                toast.error("Failed to create outreach", { description: data.error });
+            }
+        } catch {
+            toast.error("Network error");
+        } finally {
+            setCreatingOutreach(false);
+        }
+    };
 
     const deleteBrand = async (brandId: string) => {
         if (!confirm("Are you sure you want to delete this brand? This cannot be undone.")) return;
@@ -1020,18 +1060,20 @@ export default function PipelinePage() {
                                 <div className="flex gap-3 pt-2">
                                     <Button
                                         className="flex-1 bg-brand hover:bg-brand/90 text-white gap-2 h-11"
-                                        onClick={() => toast.info("AI Pitch Generation", { description: "Use the AI chat panel to generate a pitch for this brand." })}
+                                        onClick={() => startOutreach(selectedBrand, "pitch")}
+                                        disabled={creatingOutreach}
                                     >
                                         <Sparkles className="h-4 w-4" />
-                                        Generate Pitch
+                                        {creatingOutreach ? "Creating..." : "Generate Pitch"}
                                     </Button>
                                     <Button
                                         variant="outline"
                                         className="flex-1 gap-2 h-11 border-brand/30 text-brand hover:bg-brand/5"
-                                        onClick={() => toast.info("Email Composer", { description: "Email integration coming soon. Use the AI chat panel to draft emails." })}
+                                        onClick={() => startOutreach(selectedBrand, "email")}
+                                        disabled={creatingOutreach}
                                     >
                                         <Mail className="h-4 w-4" />
-                                        Send Email
+                                        {creatingOutreach ? "Creating..." : "Send Email"}
                                     </Button>
                                 </div>
 

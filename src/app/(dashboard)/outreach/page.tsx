@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { ImproveWithAI } from "@/components/ui/improve-with-ai";
 import { Card, CardContent } from "@/components/ui/card";
@@ -200,6 +201,16 @@ const INDUSTRIES = [
 ];
 
 export default function OutreachPage() {
+    return (
+        <Suspense>
+            <OutreachPageInner />
+        </Suspense>
+    );
+}
+
+function OutreachPageInner() {
+    const searchParams = useSearchParams();
+    const autoOpenId = searchParams.get("open");
     const [outreaches, setOutreaches] = useState<Outreach[]>([]);
     const [search, setSearch] = useState("");
     const [filterStatus, setFilterStatus] = useState("all");
@@ -268,6 +279,22 @@ export default function OutreachPage() {
             .then((d) => { if (d?.slug) setWorkspaceSlug(d.slug); })
             .catch(() => { });
     }, [fetchOutreaches]);
+
+    // Auto-open outreach from ?open= param (navigated from Pipeline)
+    useEffect(() => {
+        if (!autoOpenId || loading) return;
+        const target = outreaches.find((o) => o.id === autoOpenId);
+        if (target) {
+            openDetail(target);
+        } else if (!loading && outreaches.length === 0) {
+            // Fallback: fetch directly
+            fetch(`/api/outreach/${autoOpenId}`)
+                .then((r) => r.ok ? r.json() : null)
+                .then((data) => { if (data) { setSelected(data); setShowDetail(true); } })
+                .catch(() => { });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoOpenId, loading, outreaches]);
 
     // Auto-scroll chat
     useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatMessages]);
