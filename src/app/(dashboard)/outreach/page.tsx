@@ -160,6 +160,9 @@ type Outreach = {
     email2Body: string | null;
     email2SentAt: string | null;
     email2DueAt: string | null;
+    autoSendFollowUp: boolean;
+    gmailThreadId: string | null;
+    includeMediaCard: boolean;
     proposal: ProposalData | null;
     proposalSentAt: string | null;
     status: string;
@@ -1268,14 +1271,46 @@ function OutreachPageInner() {
                                             </h3>
                                         </div>
                                         {selected.email2SentAt ? (
-                                            <Badge className="bg-amber-50 text-amber-600 text-[10px]">
+                                            <Badge className="bg-green-50 text-green-700 text-[10px]">
                                                 Sent {formatDate(selected.email2SentAt)}
                                             </Badge>
-                                        ) : selected.email2DueAt ? (
-                                            <Badge className="bg-amber-50 text-amber-600 text-[10px]">
-                                                Due {formatDate(selected.email2DueAt)}
-                                            </Badge>
-                                        ) : null}
+                                        ) : (
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                {/* Toggle switch */}
+                                                <span
+                                                    onClick={async () => {
+                                                        if (!selected) return;
+                                                        const next = !selected.autoSendFollowUp;
+                                                        setSelected({ ...selected, autoSendFollowUp: next });
+                                                        await updateOutreach(selected.id, { autoSendFollowUp: next });
+                                                        if (next) {
+                                                            toast.success("Auto-send on", { description: selected.email2DueAt ? `Follow-up will be sent on ${formatDate(selected.email2DueAt)}` : "Follow-up will be sent 7 days after Email 1" });
+                                                        } else {
+                                                            toast.info("Auto-send off", { description: "You can send the follow-up manually." });
+                                                        }
+                                                    }}
+                                                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${selected.autoSendFollowUp
+                                                            ? "bg-green-500"
+                                                            : "bg-muted-foreground/30"
+                                                        }`}
+                                                >
+                                                    <span
+                                                        className={`inline-block h-3 w-3 rounded-full bg-white shadow-sm transform transition-transform ${selected.autoSendFollowUp ? "translate-x-3.5" : "translate-x-0.5"
+                                                            }`}
+                                                    />
+                                                </span>
+                                                <span className={`text-[10px] font-medium ${selected.autoSendFollowUp
+                                                        ? "text-green-600"
+                                                        : "text-muted-foreground"
+                                                    }`}>
+                                                    {selected.autoSendFollowUp
+                                                        ? selected.email2DueAt
+                                                            ? `Auto-send ${formatDate(selected.email2DueAt)}`
+                                                            : "Auto-send on"
+                                                        : "Auto-send off"}
+                                                </span>
+                                            </label>
+                                        )}
                                     </div>
                                     <div className="p-4">
                                         {!selected.email2Subject && !selected.email2Body ? (

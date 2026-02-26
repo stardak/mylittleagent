@@ -507,6 +507,7 @@ model Outreach {
   email2Body       String?   @db.Text
   email2SentAt     DateTime?
   email2DueAt      DateTime?                // scheduled 7 days after email1
+  autoSendFollowUp Boolean   @default(false) // auto-send email2 when due
 
   // Pitch Proposal (Step 3)
   proposal         Json?                    // structured proposal data

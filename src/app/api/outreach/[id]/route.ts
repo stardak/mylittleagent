@@ -95,6 +95,11 @@ export async function PATCH(
             data.status = "followed_up";
         }
 
+        // Auto-send follow-up toggle
+        if (body.autoSendFollowUp !== undefined) {
+            data.autoSendFollowUp = Boolean(body.autoSendFollowUp);
+        }
+
         // Mark as replied
         if (body.markReplied) {
             data.repliedAt = new Date();
