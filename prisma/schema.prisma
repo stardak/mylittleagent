@@ -371,8 +371,9 @@ model Invoice {
   id            String    @id @default(cuid())
   workspaceId   String
   workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  campaignId    String
-  campaign      Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaignId    String?
+  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  clientName    String?                    // freeform client name for standalone invoices
   invoiceNumber String
   issueDate     DateTime  @default(now())
   dueDate       DateTime
@@ -382,7 +383,8 @@ model Invoice {
   vatAmount     Float?
   total         Float
   currency      String    @default("GBP")
-  status        String    @default("draft")
+  status        String    @default("draft") // draft | submitted | settled | overdue | cancelled
+  notes         String?   @db.Text
   sentAt        DateTime?
   paidAt        DateTime?
   pdfUrl        String?
