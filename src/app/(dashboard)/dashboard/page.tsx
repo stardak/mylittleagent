@@ -1,18 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useWorkspace } from "@/lib/workspace-context";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
     ArrowUpRight,
     TrendingUp,
@@ -24,11 +24,9 @@ import {
     FileText,
     Mail,
     CheckCircle2,
-    AlertCircle,
     Clock,
     Bot,
     ArrowRight,
-
     Zap,
     Star,
     Target,
@@ -37,13 +35,17 @@ import {
     Briefcase,
     CreditCard,
     Settings,
+    Send,
+    Loader2,
+    Building2,
+    Activity,
 } from "lucide-react";
 
 const quickActions = [
     { label: "New Brand Lead", icon: Plus, href: "/pipeline" },
     { label: "Create Pitch", icon: Sparkles, href: "/pipeline" },
     { label: "Generate Invoice", icon: FileText, href: "/invoices" },
-    { label: "Log Outreach", icon: Mail, href: "/pipeline" },
+    { label: "Log Outreach", icon: Mail, href: "/outreach" },
 ];
 
 const setupStepsBase = [
@@ -58,49 +60,151 @@ const setupStepsBase = [
     { name: "Email Setup", completed: false, icon: Mail, xp: 10, description: "Outreach templates", href: "/templates" },
 ];
 
+const SUGGESTED_PROMPTS = [
+    "What should I focus on today?",
+    "Help me write a pitch for a Fashion brand",
+    "What's a good follow-up email for a brand that hasn't replied?",
+    "How should I price a YouTube integration deal?",
+    "Draft a decline email for a brand that's not a good fit",
+];
+
+type ActivityItem = {
+    id: string;
+    type: string;
+    description: string;
+    createdAt: string;
+    brandName: string | null;
+};
+
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+function timeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function activityIcon(type: string) {
+    if (type.includes("brand")) return Building2;
+    if (type.includes("outreach")) return Mail;
+    if (type.includes("invoice")) return FileText;
+    if (type.includes("campaign")) return Target;
+    return Activity;
+}
+
 export default function DashboardPage() {
     const { workspaceName } = useWorkspace();
     const { data: session } = useSession();
     const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
     const [stepCompletion, setStepCompletion] = useState<Record<string, boolean>>({});
+    const [stats, setStats] = useState({ pipelineValue: 0, activeBrands: 0, revenueMTD: 0, deliverablesDue: 0 });
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [activityLoading, setActivityLoading] = useState(true);
+
+    // Chat state
+    const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+    const [chatInput, setChatInput] = useState("");
+    const [chatLoading, setChatLoading] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // Fetch API key status for the banner
         fetch("/api/settings/api-key")
             .then((r) => r.json())
             .then((d) => setHasApiKey(d.hasKey))
             .catch(() => { });
 
-        // Fetch real setup progress from the database
         fetch("/api/setup-progress")
             .then((r) => r.json())
-            .then((d) => {
-                if (d.steps) setStepCompletion(d.steps);
-            })
+            .then((d) => { if (d.steps) setStepCompletion(d.steps); })
             .catch(() => { });
+
+        fetch("/api/dashboard")
+            .then((r) => r.json())
+            .then((d) => {
+                if (d.stats) setStats(d.stats);
+                if (d.activities) setActivities(d.activities);
+            })
+            .catch(() => { })
+            .finally(() => setActivityLoading(false));
     }, []);
 
-    // Build setup steps with dynamic completion status from the API
-    const setupSteps = setupStepsBase.map((step) => ({
-        ...step,
-        completed: stepCompletion[step.name] ?? false,
-    }));
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatMessages]);
 
+    const sendChat = async (text: string) => {
+        if (!text.trim() || chatLoading) return;
+        const userMsg: ChatMessage = { role: "user", content: text };
+        setChatMessages((prev) => [...prev, userMsg]);
+        setChatInput("");
+        setChatLoading(true);
+
+        try {
+            const res = await fetch("/api/agent/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messages: [...chatMessages, userMsg] }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                setChatMessages((prev) => [...prev, {
+                    role: "assistant",
+                    content: err.error || "Something went wrong. Please check your API key in Settings → AI Manager.",
+                }]);
+                return;
+            }
+
+            // Stream response
+            const reader = res.body?.getReader();
+            const decoder = new TextDecoder();
+            let assistantText = "";
+            setChatMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value);
+                    // Parse AI SDK streaming format
+                    const lines = chunk.split("\n");
+                    for (const line of lines) {
+                        if (line.startsWith("0:")) {
+                            try {
+                                const text = JSON.parse(line.slice(2));
+                                assistantText += text;
+                                setChatMessages((prev) => {
+                                    const updated = [...prev];
+                                    updated[updated.length - 1] = { role: "assistant", content: assistantText };
+                                    return updated;
+                                });
+                            } catch { /* skip */ }
+                        }
+                    }
+                }
+            }
+        } catch {
+            setChatMessages((prev) => [...prev, { role: "assistant", content: "Network error — please try again." }]);
+        } finally {
+            setChatLoading(false);
+        }
+    };
+
+    const setupSteps = setupStepsBase.map((step) => ({ ...step, completed: stepCompletion[step.name] ?? false }));
     const completedSteps = setupSteps.filter((s) => s.completed).length;
     const progress = Math.round((completedSteps / setupSteps.length) * 100);
     const totalXP = setupSteps.reduce((sum, s) => sum + s.xp, 0);
     const earnedXP = setupSteps.filter((s) => s.completed).reduce((sum, s) => sum + s.xp, 0);
     const level = completedSteps <= 2 ? 1 : completedSteps <= 5 ? 2 : completedSteps <= 7 ? 3 : 4;
     const levelLabels = ["", "Newcomer", "Rising Star", "Pro Creator", "Elite Manager"];
-
-    const motivationalText = progress === 0
-        ? "Complete your first step to start earning XP!"
-        : progress < 40
-            ? "Great start! Keep going to unlock more AI features."
-            : progress < 70
-                ? "You're on fire! Over halfway to a complete profile."
-                : progress < 100
-                    ? "Almost there! Just a few more to hit 100%."
+    const motivationalText = progress === 0 ? "Complete your first step to start earning XP!"
+        : progress < 40 ? "Great start! Keep going to unlock more AI features."
+            : progress < 70 ? "You're on fire! Over halfway to a complete profile."
+                : progress < 100 ? "Almost there! Just a few more to hit 100%."
                     : "Profile complete — you're getting the best AI results!";
 
     return (
@@ -109,8 +213,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-heading font-semibold text-foreground">
-                        Welcome back
-                        {session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
+                        Welcome back{session?.user?.name ? `, ${session.user.name.split(" ")[0]}` : ""}
                     </h1>
                     <p className="text-muted-foreground mt-1">
                         Here&apos;s what&apos;s happening with {workspaceName ?? "your workspace"} today.
@@ -124,38 +227,34 @@ export default function DashboardPage() {
                 </Link>
             </div>
 
-            {/* AI Manager API Key Banner */}
+            {/* API Key Banner */}
             {hasApiKey === false && (
-                <Card className="border-amber-200 bg-amber-50">
+                <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
                     <CardContent className="flex items-center justify-between py-4">
                         <div className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
                                 <Bot className="h-5 w-5 text-amber-700" />
                             </div>
                             <div>
-                                <p className="text-sm font-medium text-amber-900">
-                                    Set up your AI Manager to unlock pitch generation, contract drafting, and your personal AI talent manager
+                                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                                    Set up your AI Manager to unlock pitch generation and your personal AI talent manager
                                 </p>
-                                <p className="text-xs text-amber-700 mt-0.5">
-                                    Powered by your own Anthropic API key — typically £3-10/month
-                                </p>
+                                <p className="text-xs text-amber-700 mt-0.5">Powered by your own Anthropic API key — typically £3-10/month</p>
                             </div>
                         </div>
                         <Link href="/settings?tab=ai">
                             <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-2">
-                                Add API Key
-                                <ArrowRight className="h-4 w-4" />
+                                Add API Key <ArrowRight className="h-4 w-4" />
                             </Button>
                         </Link>
                     </CardContent>
                 </Card>
             )}
 
-            {/* Setup Progress (shown until complete) */}
+            {/* Setup Progress */}
             {progress < 100 && (
                 <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-brand/5 via-background to-purple-500/5">
                     <CardContent className="p-0">
-                        {/* Header Row */}
                         <div className="px-6 pt-6 pb-4 flex items-start justify-between">
                             <div className="flex items-center gap-4">
                                 <div className="h-14 w-14 rounded-full bg-gradient-to-br from-brand to-purple-500 flex items-center justify-center text-white text-lg font-heading font-bold shrink-0">
@@ -179,57 +278,33 @@ export default function DashboardPage() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Progress Bar */}
                         <div className="px-6 pb-4">
                             <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
                                 <div
-                                    className="h-3 rounded-full bg-gradient-to-r from-brand via-purple-500 to-brand transition-all duration-700 ease-out relative"
+                                    className="h-3 rounded-full bg-gradient-to-r from-brand via-purple-500 to-brand transition-all duration-700 ease-out"
                                     style={{ width: `${Math.max(progress, 2)}%` }}
-                                >
-                                    <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_0%,rgba(255,255,255,0.3)_50%,transparent_100%)] animate-[shimmer_2s_infinite]" />
-                                </div>
+                                />
                             </div>
                             <div className="flex justify-between mt-1.5">
                                 <span className="text-xs text-muted-foreground">{completedSteps} of {setupSteps.length} steps</span>
                                 <span className="text-xs font-semibold text-brand">{progress}%</span>
                             </div>
                         </div>
-
-                        {/* Steps Grid */}
                         <div className="px-6 pb-6">
                             <div className="grid grid-cols-3 gap-2">
                                 {setupSteps.map((step) => {
                                     const Icon = step.icon;
                                     return (
-                                        <Link
-                                            key={step.name}
-                                            href={step.href}
-                                            className={`group relative flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-md ${step.completed
-                                                ? "bg-brand/5 border-brand/20"
-                                                : "bg-background border-border hover:border-brand/30 hover:bg-brand/5"
-                                                }`}
+                                        <Link key={step.name} href={step.href}
+                                            className={`group relative flex items-center gap-3 rounded-xl border p-3 transition-all hover:shadow-md ${step.completed ? "bg-brand/5 border-brand/20" : "bg-background border-border hover:border-brand/30 hover:bg-brand/5"}`}
                                         >
-                                            <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-all ${step.completed
-                                                ? "bg-brand/10"
-                                                : "bg-muted group-hover:bg-brand/10"
-                                                }`}>
-                                                {step.completed ? (
-                                                    <CheckCircle2 className="h-5 w-5 text-brand" />
-                                                ) : (
-                                                    <Icon className="h-4 w-4 text-muted-foreground group-hover:text-brand transition-colors" />
-                                                )}
+                                            <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-all ${step.completed ? "bg-brand/10" : "bg-muted group-hover:bg-brand/10"}`}>
+                                                {step.completed ? <CheckCircle2 className="h-5 w-5 text-brand" /> : <Icon className="h-4 w-4 text-muted-foreground group-hover:text-brand transition-colors" />}
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
-                                                    <p className={`text-sm font-medium truncate ${step.completed ? "text-brand" : "text-foreground"
-                                                        }`}>{step.name}</p>
-                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${step.completed
-                                                        ? "bg-brand/10 text-brand"
-                                                        : "bg-muted text-muted-foreground"
-                                                        }`}>
-                                                        +{step.xp} XP
-                                                    </span>
+                                                    <p className={`text-sm font-medium truncate ${step.completed ? "text-brand" : "text-foreground"}`}>{step.name}</p>
+                                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 ml-1 ${step.completed ? "bg-brand/10 text-brand" : "bg-muted text-muted-foreground"}`}>+{step.xp} XP</span>
                                                 </div>
                                                 <p className="text-[11px] text-muted-foreground truncate">{step.description}</p>
                                             </div>
@@ -242,96 +317,100 @@ export default function DashboardPage() {
                 </Card>
             )}
 
-            {/* Stats Cards */}
+            {/* Stats */}
             <div className="grid grid-cols-4 gap-4">
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Pipeline Value</p>
-                                <p className="text-2xl font-heading font-semibold mt-1">£0</p>
+                {[
+                    { label: "Pipeline Value", value: `£${stats.pipelineValue.toLocaleString()}`, icon: TrendingUp, color: "text-brand", bg: "bg-brand/10", sub: "Across all stages" },
+                    { label: "Active Brands", value: stats.activeBrands, icon: Users, color: "text-purple-500", bg: "bg-purple-500/10", sub: "In pipeline" },
+                    { label: "Revenue (MTD)", value: `£${stats.revenueMTD.toLocaleString()}`, icon: DollarSign, color: "text-amber-500", bg: "bg-amber-500/10", sub: "This month" },
+                    { label: "Deliverables Due", value: stats.deliverablesDue, icon: Calendar, color: "text-rose-500", bg: "bg-rose-500/10", sub: "Next 7 days" },
+                ].map((s) => (
+                    <Card key={s.label}>
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">{s.label}</p>
+                                    <p className="text-2xl font-heading font-semibold mt-1">{s.value}</p>
+                                </div>
+                                <div className={`h-10 w-10 rounded-lg ${s.bg} flex items-center justify-center`}>
+                                    <s.icon className={`h-5 w-5 ${s.color}`} />
+                                </div>
                             </div>
-                            <div className="h-10 w-10 rounded-lg bg-brand/10 flex items-center justify-center">
-                                <TrendingUp className="h-5 w-5 text-brand" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            <ArrowUpRight className="h-3 w-3 text-green-500" />
-                            Across all stages
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Active Brands</p>
-                                <p className="text-2xl font-heading font-semibold mt-1">0</p>
-                            </div>
-                            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center">
-                                <Users className="h-5 w-5 text-purple-500" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            In pipeline
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Revenue (MTD)</p>
-                                <p className="text-2xl font-heading font-semibold mt-1">£0</p>
-                            </div>
-                            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                                <DollarSign className="h-5 w-5 text-amber-500" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            This month
-                        </p>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-muted-foreground">Deliverables Due</p>
-                                <p className="text-2xl font-heading font-semibold mt-1">0</p>
-                            </div>
-                            <div className="h-10 w-10 rounded-lg bg-rose-500/10 flex items-center justify-center">
-                                <Calendar className="h-5 w-5 text-rose-500" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            Next 7 days
-                        </p>
-                    </CardContent>
-                </Card>
+                            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                                <ArrowUpRight className="h-3 w-3 text-green-500" />{s.sub}
+                            </p>
+                        </CardContent>
+                    </Card>
+                ))}
             </div>
 
-            {/* Main Content Grid */}
+            {/* Main grid — AI Chat + Activity + Quick Actions */}
             <div className="grid grid-cols-3 gap-6">
-                {/* Action Items */}
-                <Card className="col-span-2">
-                    <CardHeader>
-                        <CardTitle className="font-heading text-lg">Action Items</CardTitle>
-                        <CardDescription>
-                            Tasks and follow-ups requiring your attention
-                        </CardDescription>
+
+                {/* AI Manager Chat — col-span-2 */}
+                <Card className="col-span-2 flex flex-col overflow-hidden">
+                    <CardHeader className="pb-3 flex-row items-center gap-3 space-y-0">
+                        <div className="h-9 w-9 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center shrink-0">
+                            <Sparkles className="h-4 w-4 text-brand" />
+                        </div>
+                        <div>
+                            <CardTitle className="font-heading text-lg">Ask Your AI Manager</CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">Powered by Claude — your personal talent manager</p>
+                        </div>
                     </CardHeader>
-                    <CardContent>
-                        <div className="flex flex-col items-center justify-center py-8 text-center">
-                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                                <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                No action items yet. Start by adding brands to your pipeline.
-                            </p>
+                    <CardContent className="flex flex-col flex-1 p-0 min-h-0">
+                        {/* Messages */}
+                        <div className="flex-1 overflow-y-auto px-6 py-3 space-y-3 max-h-72 min-h-[140px]">
+                            {chatMessages.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-full py-4 gap-4">
+                                    <p className="text-sm text-muted-foreground text-center">
+                                        Ask anything about pitches, pricing, outreach, or what to do next.
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                        {SUGGESTED_PROMPTS.map((p) => (
+                                            <button
+                                                key={p}
+                                                onClick={() => sendChat(p)}
+                                                className="text-xs px-3 py-1.5 rounded-full border border-brand/20 bg-brand/5 text-brand hover:bg-brand/10 transition-colors"
+                                            >
+                                                {p}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                chatMessages.map((msg, i) => (
+                                    <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                        <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${msg.role === "user"
+                                                ? "bg-brand text-white rounded-br-sm"
+                                                : "bg-muted text-foreground rounded-bl-sm"
+                                            }`}>
+                                            {msg.content || <Loader2 className="h-3.5 w-3.5 animate-spin opacity-50" />}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            <div ref={chatEndRef} />
+                        </div>
+
+                        {/* Input */}
+                        <div className="border-t px-4 py-3 flex gap-2">
+                            <Input
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChat(chatInput)}
+                                placeholder={hasApiKey === false ? "Add your API key in Settings to chat..." : "Ask your manager anything..."}
+                                disabled={chatLoading || hasApiKey === false}
+                                className="flex-1 text-sm"
+                            />
+                            <Button
+                                onClick={() => sendChat(chatInput)}
+                                disabled={chatLoading || !chatInput.trim() || hasApiKey === false}
+                                className="bg-brand hover:bg-brand/90 text-white shrink-0"
+                                size="icon"
+                            >
+                                {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -344,10 +423,7 @@ export default function DashboardPage() {
                     <CardContent className="space-y-2">
                         {quickActions.map((action) => (
                             <Link key={action.label} href={action.href}>
-                                <Button
-                                    variant="outline"
-                                    className="w-full justify-start gap-3 h-11"
-                                >
+                                <Button variant="outline" className="w-full justify-start gap-3 h-11">
                                     <action.icon className="h-4 w-4 text-brand" />
                                     {action.label}
                                 </Button>
@@ -360,22 +436,43 @@ export default function DashboardPage() {
             {/* Recent Activity */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="font-heading text-lg">
-                        Recent Activity
-                    </CardTitle>
-                    <CardDescription>
-                        Your latest actions and updates
-                    </CardDescription>
+                    <CardTitle className="font-heading text-lg">Recent Activity</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                            <Clock className="h-6 w-6 text-muted-foreground" />
+                    {activityLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                            No activity yet. Your recent actions will appear here.
-                        </p>
-                    </div>
+                    ) : activities.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-3">
+                                <Clock className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                No activity yet. Add brands, send outreach, or create invoices to see activity here.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="divide-y">
+                            {activities.map((a) => {
+                                const Icon = activityIcon(a.type);
+                                return (
+                                    <div key={a.id} className="flex items-start gap-3 py-3">
+                                        <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0 mt-0.5">
+                                            <Icon className="h-4 w-4 text-muted-foreground" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm leading-snug">{a.description}</p>
+                                            {a.brandName && (
+                                                <p className="text-xs text-brand mt-0.5">{a.brandName}</p>
+                                            )}
+                                        </div>
+                                        <span className="text-xs text-muted-foreground shrink-0">{timeAgo(a.createdAt)}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
