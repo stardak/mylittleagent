@@ -50,6 +50,7 @@ import {
     Sparkles,
     Trash2,
     Megaphone,
+    Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -112,6 +113,9 @@ export default function PipelinePage() {
     const [editNotesValue, setEditNotesValue] = useState("");
     const [isEditingContact, setIsEditingContact] = useState(false);
     const [editContact, setEditContact] = useState({ name: "", email: "", phone: "", website: "" });
+    const [findingContact, setFindingContact] = useState(false);
+    type ContactCandidate = { name: string | null; role: string | null; email: string | null; source: string; snippet: string };
+    const [contactResults, setContactResults] = useState<ContactCandidate[]>([]);
     const [draggedBrand, setDraggedBrand] = useState<string | null>(null);
     const [dragOverStage, setDragOverStage] = useState<string | null>(null);
     const [createError, setCreateError] = useState<string | null>(null);
@@ -369,9 +373,37 @@ export default function PipelinePage() {
             setBrands(brands.map((b) => b.id === brandId ? { ...b, ...patch } : b));
             if (selectedBrand?.id === brandId) setSelectedBrand({ ...selectedBrand, ...patch });
             setIsEditingContact(false);
+            setContactResults([]);
             toast.success("Contact updated");
         } catch {
             toast.error("Failed to update contact");
+        }
+    };
+
+    const findBrandContact = async (brand: { name: string; website?: string | null }) => {
+        setFindingContact(true);
+        setContactResults([]);
+        try {
+            const res = await fetch("/api/brands/find-contact", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ brandName: brand.name, website: brand.website }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.error || "Search failed");
+                return;
+            }
+            if (!data.candidates?.length) {
+                toast.info("No contacts found", { description: "Try adding a website URL to the brand and searching again." });
+                return;
+            }
+            setContactResults(data.candidates);
+            setIsEditingContact(true); // auto-open edit form
+        } catch {
+            toast.error("Network error — couldn't reach Tavily");
+        } finally {
+            setFindingContact(false);
         }
     };
 
@@ -848,27 +880,85 @@ export default function PipelinePage() {
                                     <div className="px-4 py-2.5 bg-muted/30 border-b flex items-center justify-between">
                                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact</h3>
                                         {!isEditingContact && (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-6 text-xs text-brand gap-1"
-                                                onClick={() => {
-                                                    setEditContact({
-                                                        name: selectedBrand.contactName || "",
-                                                        email: selectedBrand.contactEmail || "",
-                                                        phone: selectedBrand.contactPhone || "",
-                                                        website: selectedBrand.website || "",
-                                                    });
-                                                    setIsEditingContact(true);
-                                                }}
-                                            >
-                                                {(selectedBrand.contactName || selectedBrand.contactEmail) ? "Edit" : "Add Contact"}
-                                            </Button>
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 text-xs text-muted-foreground gap-1 hover:text-brand"
+                                                    disabled={findingContact}
+                                                    onClick={() => findBrandContact(selectedBrand)}
+                                                >
+                                                    {findingContact ? (
+                                                        <><Loader2 className="h-3 w-3 animate-spin" /> Searching...</>
+                                                    ) : (
+                                                        <><Sparkles className="h-3 w-3" /> Find with AI</>
+                                                    )}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 text-xs text-brand gap-1"
+                                                    onClick={() => {
+                                                        setEditContact({
+                                                            name: selectedBrand.contactName || "",
+                                                            email: selectedBrand.contactEmail || "",
+                                                            phone: selectedBrand.contactPhone || "",
+                                                            website: selectedBrand.website || "",
+                                                        });
+                                                        setContactResults([]);
+                                                        setIsEditingContact(true);
+                                                    }}
+                                                >
+                                                    {(selectedBrand.contactName || selectedBrand.contactEmail) ? "Edit" : "Add Contact"}
+                                                </Button>
+                                            </div>
                                         )}
                                     </div>
                                     <div className="p-4">
                                         {isEditingContact ? (
                                             <div className="space-y-3">
+                                                {/* AI Results */}
+                                                {contactResults.length > 0 && (
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                                                            <Sparkles className="h-3 w-3 text-brand" /> AI found these contacts — click one to fill
+                                                        </p>
+                                                        <div className="space-y-1 max-h-40 overflow-y-auto">
+                                                            {contactResults.map((c, i) => (
+                                                                <button
+                                                                    key={i}
+                                                                    onClick={() => setEditContact({
+                                                                        name: c.name || "",
+                                                                        email: c.email || "",
+                                                                        phone: editContact.phone,
+                                                                        website: editContact.website,
+                                                                    })}
+                                                                    className="w-full text-left px-3 py-2 rounded-lg border bg-background hover:bg-brand/5 hover:border-brand/30 transition-all text-xs group"
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div className="min-w-0">
+                                                                            {c.name && <p className="font-medium truncate group-hover:text-brand">{c.name}</p>}
+                                                                            {c.role && <p className="text-muted-foreground truncate">{c.role}</p>}
+                                                                            {c.email && <p className="text-brand truncate font-mono">{c.email}</p>}
+                                                                        </div>
+                                                                        <a
+                                                                            href={c.source}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                            className="shrink-0 text-muted-foreground hover:text-brand"
+                                                                        >
+                                                                            <ExternalLink className="h-3 w-3" />
+                                                                        </a>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <div className="border-t pt-2">
+                                                            <p className="text-xs text-muted-foreground">Or fill in manually below</p>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="space-y-1">
                                                         <label className="text-xs font-medium text-muted-foreground">Name</label>
