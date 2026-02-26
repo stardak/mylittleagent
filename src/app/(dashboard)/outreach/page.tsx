@@ -48,6 +48,9 @@ import {
     Copy,
     Bot,
     Wrench,
+    History,
+    PenLine,
+    MessagesSquare,
 } from "lucide-react";
 
 /* ─────────────────────────────────────────────────────────────── */
@@ -242,6 +245,46 @@ function OutreachPageInner() {
     const chatEndRef = useRef<HTMLDivElement>(null);
     const aiInputRef = useRef<HTMLTextAreaElement>(null);
     const isChatBusy = chatStatus === "streaming" || chatStatus === "acting";
+
+    // Conversation history state
+    type ConvSummary = { id: string; title: string | null; updatedAt: string; _count: { messages: number } };
+    const [showHistory, setShowHistory] = useState(false);
+    const [conversations, setConversations] = useState<ConvSummary[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [activeConvId, setActiveConvId] = useState<string | null>(null);
+
+    const loadConversations = useCallback(async () => {
+        setHistoryLoading(true);
+        try {
+            const res = await fetch("/api/conversations");
+            if (res.ok) setConversations(await res.json());
+        } catch { /* silent */ } finally { setHistoryLoading(false); }
+    }, []);
+
+    const resumeConversation = async (convId: string) => {
+        try {
+            const res = await fetch(`/api/conversations/${convId}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            resetChat();
+            // Re-hydrate messages into the chat hook via a synthetic approach
+            // We'll pass them as initial messages by rebuilding state manually
+            const msgs: OutreachChatMessage[] = data.messages.map((m: { id: string; role: string; content: string }) => ({
+                id: m.id,
+                role: m.role as "user" | "assistant",
+                content: m.content,
+            }));
+            // Use the hook's internal setter via a workaround: fire a special re-init
+            // Instead, we just push all messages via a trick — call the send function
+            // Actually simplest: store loaded messages in local state and render them
+            setLoadedMessages(msgs);
+            setActiveConvId(convId);
+            setShowHistory(false);
+        } catch { toast.error("Couldn\'t load conversation"); }
+    };
+
+    const [loadedMessages, setLoadedMessages] = useState<OutreachChatMessage[]>([]);
+    const displayMessages = loadedMessages.length > 0 && activeConvId ? loadedMessages : chatMessages;
 
     // AI generation states
     const [generatingEmails, setGeneratingEmails] = useState(false);
@@ -762,6 +805,7 @@ function OutreachPageInner() {
             {
                 aiPanelOpen ? (
                     <div className="border rounded-2xl bg-card shadow-sm overflow-hidden">
+                        {/* Header */}
                         <div className="flex items-center justify-between px-5 py-3.5 border-b bg-muted/30">
                             <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 rounded-full bg-brand/10 flex items-center justify-center">
@@ -770,24 +814,73 @@ function OutreachPageInner() {
                                 <div>
                                     <p className="text-sm font-semibold">AI Outreach Assistant</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {isChatBusy ? "Thinking..." : "Ask me anything about brand outreach"}
+                                        {isChatBusy ? "Thinking..." : activeConvId ? "Resumed conversation" : "Ask me anything about brand outreach"}
                                     </p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="sm" onClick={() => { resetChat(); }} className="text-xs h-7 px-2 text-muted-foreground">Clear</Button>
+                                {/* New Chat */}
+                                <button
+                                    onClick={() => { resetChat(); setLoadedMessages([]); setActiveConvId(null); setShowHistory(false); }}
+                                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                                    title="New chat"
+                                >
+                                    <PenLine className="h-4 w-4 text-muted-foreground" />
+                                </button>
+                                {/* History toggle */}
+                                <button
+                                    onClick={() => { setShowHistory((v) => !v); if (!showHistory) loadConversations(); }}
+                                    className={`p-1.5 rounded-lg transition-colors ${showHistory ? "bg-brand/10 text-brand" : "hover:bg-muted text-muted-foreground"}`}
+                                    title="Conversation history"
+                                >
+                                    <History className="h-4 w-4" />
+                                </button>
                                 <button onClick={() => setAiPanelOpen(false)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                                     <X className="h-4 w-4 text-muted-foreground" />
                                 </button>
                             </div>
                         </div>
+
+                        {/* History Panel */}
+                        {showHistory && (
+                            <div className="border-b bg-muted/20 max-h-[260px] overflow-y-auto">
+                                <div className="px-4 py-2.5 flex items-center justify-between sticky top-0 bg-muted/30 backdrop-blur border-b">
+                                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                                        <MessagesSquare className="h-3.5 w-3.5" /> Previous Threads
+                                    </p>
+                                    {historyLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                                </div>
+                                {conversations.length === 0 && !historyLoading ? (
+                                    <p className="text-xs text-muted-foreground text-center py-6">No saved conversations yet</p>
+                                ) : (
+                                    <div className="divide-y">
+                                        {conversations.map((conv) => (
+                                            <button
+                                                key={conv.id}
+                                                onClick={() => resumeConversation(conv.id)}
+                                                className={`w-full text-left px-4 py-3 hover:bg-brand/5 transition-colors group ${activeConvId === conv.id ? "bg-brand/5 border-l-2 border-brand" : ""}`}
+                                            >
+                                                <p className="text-sm font-medium truncate group-hover:text-brand transition-colors">
+                                                    {conv.title || "Untitled conversation"}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {conv._count.messages} message{conv._count.messages !== 1 ? "s" : ""} · {new Date(conv.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                                                </p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Messages */}
                         <div className="min-h-[140px] max-h-[380px] overflow-y-auto p-5 space-y-4">
-                            {chatMessages.length === 0 ? (
+                            {displayMessages.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center h-24 text-center">
                                     <Sparkles className="h-6 w-6 text-brand/30 mb-2" />
                                     <p className="text-sm text-muted-foreground">Ask anything, or pick a prompt below.</p>
                                 </div>
-                            ) : chatMessages.map((m) => (
+                            ) : displayMessages.map((m) => (
                                 <div key={m.id} className={`flex gap-3 ${m.role === "user" ? "flex-row-reverse" : ""}`}>
                                     {m.role === "assistant" && (
                                         <div className="h-7 w-7 rounded-full bg-brand/10 flex items-center justify-center shrink-0 mt-0.5">
@@ -809,7 +902,7 @@ function OutreachPageInner() {
                             <div ref={chatEndRef} />
                         </div>
                         {/* Quick prompts inside expanded panel */}
-                        {chatMessages.length === 0 && (
+                        {displayMessages.length === 0 && (
                             <div className="border-t px-5 py-4 bg-muted/20">
                                 <div className="flex flex-wrap gap-2">
                                     {OUTREACH_PROMPTS.flatMap((cat) => cat.prompts).slice(0, 6).map((p) => (
