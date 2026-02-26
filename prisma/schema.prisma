@@ -513,6 +513,7 @@ model Outreach {
   proposalSentAt   DateTime?
 
   // Pipeline status
+  gmailThreadId    String?                      // Gmail thread ID for reply monitoring
   status           String    @default("draft") // draft|sent|followed_up|replied|proposal_sent|archived
   repliedAt        DateTime?
   archivedAt       DateTime?

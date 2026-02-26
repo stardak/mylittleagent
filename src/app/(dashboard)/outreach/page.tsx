@@ -235,6 +235,8 @@ export default function OutreachPage() {
     // AI generation states
     const [generatingEmails, setGeneratingEmails] = useState(false);
     const [generatingProposal, setGeneratingProposal] = useState(false);
+    const [sendingEmail, setSendingEmail] = useState<1 | 2 | null>(null);
+    const [syncingReplies, setSyncingReplies] = useState(false);
 
     // Edit states
     const [editingEmail1, setEditingEmail1] = useState(false);
@@ -404,6 +406,48 @@ export default function OutreachPage() {
         if (!selected) return;
         const ok = await updateOutreach(selected.id, { markProposalSent: true });
         if (ok) toast.success("Proposal marked as sent!");
+    };
+
+    const sendViaGmail = async (emailNumber: 1 | 2) => {
+        if (!selected) return;
+        setSendingEmail(emailNumber);
+        try {
+            const res = await fetch(`/api/outreach/${selected.id}/send-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ emailNumber }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSelected({ ...selected, ...data.outreach });
+                setOutreaches((prev) => prev.map((o) => o.id === selected.id ? { ...o, ...data.outreach } : o));
+                toast.success(`Email ${emailNumber} sent via Gmail!`, { description: `Delivered to ${selected.contactEmail}` });
+            } else {
+                toast.error("Failed to send", { description: data.error });
+            }
+        } catch {
+            toast.error("Failed to send email");
+        } finally { setSendingEmail(null); }
+    };
+
+    const syncReplies = async () => {
+        setSyncingReplies(true);
+        try {
+            const res = await fetch("/api/gmail/sync", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                if (data.repliesFound > 0) {
+                    toast.success(`${data.repliesFound} new repl${data.repliesFound === 1 ? "y" : "ies"} detected!`, { description: "Status updated to Replied." });
+                    fetchOutreaches();
+                } else {
+                    toast.info("No new replies found", { description: `Checked ${data.checked} outreach thread${data.checked === 1 ? "" : "s"}.` });
+                }
+            } else {
+                toast.error("Sync failed", { description: data.error });
+            }
+        } catch {
+            toast.error("Reply sync failed");
+        } finally { setSyncingReplies(false); }
     };
 
     const archiveOutreach = async () => {
@@ -1045,13 +1089,25 @@ export default function OutreachPage() {
                                                         <Copy className="h-3.5 w-3.5 mr-1" /> Copy
                                                     </Button>
                                                     {!selected.email1SentAt && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-blue-600 hover:bg-blue-700 text-white ml-auto"
-                                                            onClick={markEmail1Sent}
-                                                        >
-                                                            <Send className="h-3.5 w-3.5 mr-1" /> Mark as Sent
-                                                        </Button>
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                                                                onClick={() => sendViaGmail(1)}
+                                                                disabled={sendingEmail !== null}
+                                                            >
+                                                                {sendingEmail === 1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                                                                Send via Gmail
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-blue-600 hover:bg-blue-700 text-white ml-auto"
+                                                                onClick={markEmail1Sent}
+                                                            >
+                                                                <Send className="h-3.5 w-3.5 mr-1" /> Mark as Sent
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -1139,13 +1195,25 @@ export default function OutreachPage() {
                                                         <Copy className="h-3.5 w-3.5 mr-1" /> Copy
                                                     </Button>
                                                     {!selected.email2SentAt && (
-                                                        <Button
-                                                            size="sm"
-                                                            className="bg-amber-600 hover:bg-amber-700 text-white ml-auto"
-                                                            onClick={markEmail2Sent}
-                                                        >
-                                                            <Send className="h-3.5 w-3.5 mr-1" /> Mark as Sent
-                                                        </Button>
+                                                        <>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+                                                                onClick={() => sendViaGmail(2)}
+                                                                disabled={sendingEmail !== null}
+                                                            >
+                                                                {sendingEmail === 2 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                                                                Send via Gmail
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                className="bg-amber-600 hover:bg-amber-700 text-white ml-auto"
+                                                                onClick={markEmail2Sent}
+                                                            >
+                                                                <Send className="h-3.5 w-3.5 mr-1" /> Mark as Sent
+                                                            </Button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>

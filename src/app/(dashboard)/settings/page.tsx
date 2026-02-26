@@ -32,6 +32,9 @@ import {
     CheckCircle2,
     ArrowRight,
     ClipboardEdit,
+    Mail,
+    Unlink,
+    RefreshCw,
 } from "lucide-react";
 
 import { Suspense } from "react";
@@ -40,7 +43,7 @@ function SettingsContent() {
     const { workspaceName } = useWorkspace();
     const searchParams = useSearchParams();
     const router = useRouter();
-    const validTabs = ["profile", "appearance", "ai", "team"];
+    const validTabs = ["profile", "appearance", "ai", "team", "integrations"];
     const tabFromUrl = searchParams.get("tab");
     const initialTab = tabFromUrl && validTabs.includes(tabFromUrl) ? tabFromUrl : "profile";
     const [activeTab, setActiveTab] = useState(initialTab);
@@ -51,12 +54,58 @@ function SettingsContent() {
         router.replace(`/settings?tab=${value}`, { scroll: false });
     };
 
+    // Gmail connection state
+    const [gmailStatus, setGmailStatus] = useState<{ connected: boolean; email: string | null } | null>(null);
+    const [gmailLoading, setGmailLoading] = useState(false);
+    const [gmailConnecting, setGmailConnecting] = useState(false);
+
+    const fetchGmailStatus = useCallback(async () => {
+        setGmailLoading(true);
+        try {
+            const res = await fetch("/api/gmail/status");
+            if (res.ok) setGmailStatus(await res.json());
+        } finally { setGmailLoading(false); }
+    }, []);
+
+    const handleConnectGmail = async () => {
+        setGmailConnecting(true);
+        try {
+            const res = await fetch("/api/gmail/connect");
+            const { url } = await res.json();
+            window.location.href = url;
+        } catch {
+            toast.error("Failed to start Gmail connection");
+            setGmailConnecting(false);
+        }
+    };
+
+    const handleDisconnectGmail = async () => {
+        await fetch("/api/gmail/status", { method: "DELETE" });
+        setGmailStatus({ connected: false, email: null });
+        toast.success("Gmail disconnected");
+    };
+
+    useEffect(() => {
+        if (activeTab === "integrations") fetchGmailStatus();
+        // Check for OAuth callback result
+        const gmailParam = searchParams.get("gmail");
+        if (gmailParam === "connected") {
+            toast.success("Gmail connected!", { description: "You can now send outreach emails directly from the app." });
+            setActiveTab("integrations");
+            fetchGmailStatus();
+        } else if (gmailParam === "error") {
+            toast.error("Gmail connection failed", { description: "Please try again or check your GCP settings." });
+            setActiveTab("integrations");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
+
     return (
         <div className="p-8 max-w-4xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-heading font-semibold">Settings</h1>
                 <p className="text-muted-foreground mt-1">
-                    Manage your account, appearance, and AI preferences.
+                    Manage your account, appearance, AI preferences, and integrations.
                 </p>
             </div>
 
@@ -96,6 +145,10 @@ function SettingsContent() {
                         <Users className="h-4 w-4" />
                         Team
                     </TabsTrigger>
+                    <TabsTrigger value="integrations" className="gap-2">
+                        <Mail className="h-4 w-4" />
+                        Integrations
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* Profile Tab */}
@@ -130,7 +183,7 @@ function SettingsContent() {
                     </Card>
                 </TabsContent>
 
-                {/* Appearance Tab (was Brand Visuals) */}
+                {/* Appearance Tab */}
                 <TabsContent value="appearance">
                     <Card>
                         <CardHeader>
@@ -222,6 +275,85 @@ function SettingsContent() {
                         </CardContent>
                     </Card>
                 </TabsContent>
+
+                {/* Integrations Tab */}
+                <TabsContent value="integrations" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="font-heading flex items-center gap-2">
+                                <Mail className="h-5 w-5 text-brand" />
+                                Gmail
+                            </CardTitle>
+                            <CardDescription>
+                                Connect your Gmail account to send outreach emails directly from the app and monitor replies.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {gmailLoading ? (
+                                <div className="flex items-center gap-2 text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin" /> Checking connection...
+                                </div>
+                            ) : gmailStatus?.connected ? (
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50 border border-green-200">
+                                        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-green-800">Gmail Connected</p>
+                                            <p className="text-xs text-green-700 mt-0.5">{gmailStatus.email}</p>
+                                        </div>
+                                        <Button variant="outline" size="sm" onClick={fetchGmailStatus} className="gap-1.5">
+                                            <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                                        </Button>
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleDisconnectGmail}
+                                        className="text-destructive border-destructive/30 hover:bg-destructive/5 gap-2"
+                                    >
+                                        <Unlink className="h-4 w-4" />
+                                        Disconnect Gmail
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/40 border">
+                                        <Mail className="h-5 w-5 text-muted-foreground shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium">Not connected</p>
+                                            <p className="text-xs text-muted-foreground">Connect to send outreach emails without leaving the app</p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        onClick={handleConnectGmail}
+                                        disabled={gmailConnecting}
+                                        className="bg-brand hover:bg-brand/90 text-white gap-2"
+                                    >
+                                        {gmailConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                                        Connect Gmail
+                                    </Button>
+                                </div>
+                            )}
+
+                            <Separator />
+
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">One-time GCP Setup Required</p>
+                                <div className="text-sm text-muted-foreground space-y-1.5 bg-muted/30 rounded-lg p-4 border">
+                                    <p>Before connecting Gmail, complete these steps in <a href="https://console.cloud.google.com" target="_blank" rel="noopener noreferrer" className="text-brand underline">Google Cloud Console</a>:</p>
+                                    <ol className="list-decimal list-inside space-y-1.5 mt-2">
+                                        <li>Enable the <strong>Gmail API</strong> for your project (<code className="text-xs bg-muted px-1 rounded">476133354291</code>)</li>
+                                        <li>OAuth consent screen → Scopes → add <code className="text-xs bg-muted px-1 rounded">gmail.send</code> and <code className="text-xs bg-muted px-1 rounded">gmail.readonly</code></li>
+                                        <li>Test users → add your email address</li>
+                                        <li>Credentials → OAuth 2.0 Client → add Authorised redirect URI:<br />
+                                            <code className="text-xs bg-muted px-1 rounded">https://mylittleagent.vercel.app/api/gmail/callback</code></li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
             </Tabs>
         </div>
     );
