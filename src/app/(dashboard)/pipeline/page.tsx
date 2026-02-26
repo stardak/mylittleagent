@@ -345,7 +345,7 @@ export default function PipelinePage() {
     };
 
     return (
-        <div className="p-8 space-y-6 overflow-x-hidden">
+        <div className="p-8 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 shrink-0">
@@ -523,8 +523,8 @@ export default function PipelinePage() {
 
             {/* Kanban View */}
             {viewMode === "kanban" && (
-                <div className="w-0 min-w-full">
-                    <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2">
+                <div className="overflow-x-auto pb-4 -mx-8 px-8">
+                    <div className="flex gap-3 min-w-max">
                         {PIPELINE_STAGES.map((stage) => {
                             const stageBrands = getBrandsForStage(stage.id);
                             const stageValue = getStageValue(stage.id);
