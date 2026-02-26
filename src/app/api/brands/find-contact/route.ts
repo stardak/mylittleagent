@@ -17,11 +17,11 @@ export type ContactCandidate = {
     email: string | null;
     source: string;
     snippet: string;
+    verified?: boolean;
 };
 
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
 
-// Common partnership / influencer role keywords to look for in snippets
 const ROLE_KEYWORDS = [
     "influencer", "creator", "partnership", "partnerships", "affiliate",
     "brand", "collaboration", "pr", "press", "marketing", "comms",
@@ -31,7 +31,6 @@ const ROLE_KEYWORDS = [
 function extractEmail(text: string): string | null {
     const matches = text.match(EMAIL_RE);
     if (!matches) return null;
-    // Filter out generic noreply / info addresses
     const filtered = matches.filter(
         (e) => !e.startsWith("noreply") && !e.startsWith("no-reply") && !e.startsWith("support")
     );
@@ -39,11 +38,9 @@ function extractEmail(text: string): string | null {
 }
 
 function extractRole(text: string): string | null {
-    // Look for patterns like "Head of Influencer Partnerships", "Creator Marketing Manager" etc
     const patterns = [
         /(?:head|director|manager|lead|vp|vice president|coordinator|executive)\s+of\s+[\w\s]+(?:influencer|creator|partnership|affiliate|sponsorship|marketing|brand|pr)[^\n,.;]*/gi,
         /(?:influencer|creator|partnership|affiliate|sponsorship|brand)\s+[\w\s]*(?:head|director|manager|lead|coordinator|executive)[^\n,.;]*/gi,
-        /[\w\s]+(?:influencer|creator|partnership)s?\s+(?:team|department)[^\n,.;]*/gi,
     ];
     for (const pat of patterns) {
         const match = text.match(pat);
@@ -53,7 +50,6 @@ function extractRole(text: string): string | null {
 }
 
 function extractName(text: string): string | null {
-    // Look for "Contact: FirstName LastName" or "reach out to FirstName LastName"
     const patterns = [
         /(?:contact|reach\s+out\s+to|email)\s+([A-Z][a-z]+\s+[A-Z][a-z]+)/,
         /([A-Z][a-z]+\s+[A-Z][a-z]+),?\s+(?:Head|Director|Manager|Lead|Coordinator)/,
@@ -86,6 +82,64 @@ async function tavilySearch(query: string, apiKey: string) {
     return res.json();
 }
 
+async function hunterDomainSearch(domain: string, apiKey: string): Promise<ContactCandidate[]> {
+    // Search marketing + partnerships departments
+    const departments = ["marketing", "communications"];
+    const results: ContactCandidate[] = [];
+    const seenEmails = new Set<string>();
+
+    for (const dept of departments) {
+        try {
+            const url = new URL("https://api.hunter.io/v2/domain-search");
+            url.searchParams.set("domain", domain);
+            url.searchParams.set("department", dept);
+            url.searchParams.set("limit", "5");
+            url.searchParams.set("api_key", apiKey);
+
+            const res = await fetch(url.toString());
+            if (!res.ok) continue;
+
+            const data = await res.json();
+            const emails: {
+                value: string;
+                first_name?: string;
+                last_name?: string;
+                position?: string;
+                confidence?: number;
+            }[] = data?.data?.emails ?? [];
+
+            for (const e of emails) {
+                if (seenEmails.has(e.value)) continue;
+                seenEmails.add(e.value);
+
+                const name = e.first_name && e.last_name
+                    ? `${e.first_name} ${e.last_name}`
+                    : null;
+
+                // Only include if role sounds relevant
+                const role = e.position ?? null;
+                const isRelevant = !role || ROLE_KEYWORDS.some((kw) =>
+                    role.toLowerCase().includes(kw)
+                );
+                if (!isRelevant) continue;
+
+                results.push({
+                    name,
+                    role,
+                    email: e.value,
+                    source: `Hunter.io – ${domain}`,
+                    snippet: `Verified email found via Hunter.io (${e.confidence ?? "?"}% confidence)`,
+                    verified: true,
+                });
+            }
+        } catch {
+            // Don't fail the whole request if one department errors
+        }
+    }
+
+    return results;
+}
+
 /**
  * POST /api/brands/find-contact
  * Body: { brandName: string, website?: string }
@@ -96,10 +150,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const apiKey = process.env.TAVILY_API_KEY;
-    if (!apiKey) {
+    const tavilyKey = process.env.TAVILY_API_KEY;
+    const hunterKey = process.env.HUNTER_API_KEY;
+
+    if (!tavilyKey && !hunterKey) {
         return NextResponse.json(
-            { error: "Tavily API key not configured. Add TAVILY_API_KEY to your environment variables." },
+            { error: "No search API keys configured. Add TAVILY_API_KEY or HUNTER_API_KEY to your environment variables." },
             { status: 422 }
         );
     }
@@ -113,52 +169,62 @@ export async function POST(req: Request) {
         ? website.replace(/^https?:\/\//, "").split("/")[0]
         : null;
 
-    // Run two searches in parallel
-    const queries = [
-        `"${brandName}" influencer marketing partnerships contact email`,
-        domain
-            ? `"${brandName}" creator partnerships contact site:${domain}`
-            : `"${brandName}" influencer partnerships press contact email`,
-    ];
+    // Run Tavily + Hunter in parallel
+    const [tavilyResult, hunterResult] = await Promise.allSettled([
+        // Tavily searches
+        tavilyKey
+            ? Promise.all([
+                tavilySearch(`"${brandName}" influencer marketing partnerships contact email`, tavilyKey),
+                tavilySearch(
+                    domain
+                        ? `"${brandName}" creator partnerships contact site:${domain}`
+                        : `"${brandName}" influencer partnerships press contact email`,
+                    tavilyKey
+                ),
+            ])
+            : Promise.resolve(null),
 
-    try {
-        const [r1, r2] = await Promise.allSettled(
-            queries.map((q) => tavilySearch(q, apiKey))
-        );
+        // Hunter domain search
+        hunterKey && domain
+            ? hunterDomainSearch(domain, hunterKey)
+            : Promise.resolve([]),
+    ]);
+
+    const candidates: ContactCandidate[] = [];
+    const seenEmails = new Set<string>();
+
+    // ── Hunter results first (verified emails → highest quality) ──
+    if (hunterResult.status === "fulfilled" && hunterResult.value) {
+        for (const c of hunterResult.value) {
+            if (c.email && seenEmails.has(c.email)) continue;
+            if (c.email) seenEmails.add(c.email);
+            candidates.push(c);
+        }
+    }
+
+    // ── Tavily results ──
+    if (tavilyResult.status === "fulfilled" && tavilyResult.value) {
+        const tavilyPairs = tavilyResult.value as [{ answer?: string; results?: { url: string; content: string; title: string }[] }, { answer?: string; results?: { url: string; content: string; title: string }[] }];
 
         const allResults: { url: string; content: string; title: string }[] = [];
-
-        for (const r of [r1, r2]) {
-            if (r.status === "fulfilled" && r.value?.results) {
-                allResults.push(...r.value.results);
-            }
-        }
-
-        // Also include the AI answer if available
         const answers: string[] = [];
-        for (const r of [r1, r2]) {
-            if (r.status === "fulfilled" && r.value?.answer) {
-                answers.push(r.value.answer);
-            }
+
+        for (const r of tavilyPairs) {
+            if (r?.results) allResults.push(...r.results);
+            if (r?.answer) answers.push(r.answer);
         }
 
-        const candidates: ContactCandidate[] = [];
-        const seenEmails = new Set<string>();
-
-        // Process the AI answer first (most condensed/relevant)
         for (const answer of answers) {
             const email = extractEmail(answer);
             const role = extractRole(answer);
             const name = extractName(answer);
-            if (email && !seenEmails.has(email)) {
-                seenEmails.add(email);
+            if (email && seenEmails.has(email)) continue;
+            if (email) seenEmails.add(email);
+            if (email || role || name) {
                 candidates.push({ name, role, email, source: "AI Summary", snippet: answer.slice(0, 200) });
-            } else if (role || name) {
-                candidates.push({ name, role, email: null, source: "AI Summary", snippet: answer.slice(0, 200) });
             }
         }
 
-        // Process individual search results
         for (const result of allResults) {
             const text = `${result.title} ${result.content}`;
             if (!isRelevantSnippet(text)) continue;
@@ -180,13 +246,7 @@ export async function POST(req: Request) {
                 });
             }
         }
-
-        return NextResponse.json({ candidates: candidates.slice(0, 6) });
-    } catch (err) {
-        console.error("Tavily search error:", err);
-        return NextResponse.json(
-            { error: "Search failed. Check your Tavily API key and try again." },
-            { status: 500 }
-        );
     }
+
+    return NextResponse.json({ candidates: candidates.slice(0, 8) });
 }
