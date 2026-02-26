@@ -30,13 +30,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (includeMediaCard && emailNumber === 1) {
         const membership = await prisma.membership.findFirst({ where: { userId: session.user.id } });
         if (membership) {
-            const bp = await prisma.brandProfile.findUnique({
-                where: { workspaceId: membership.workspaceId },
-                select: { mediaPdfUrl: true, brandName: true },
-            });
-            if (bp?.mediaPdfUrl) {
-                attachmentUrl = bp.mediaPdfUrl;
-                attachmentName = `${bp.brandName ?? "media"}-card.pdf`;
+            // Use raw SQL to avoid stale Prisma TS types for mediaPdfUrl
+            const rows = await prisma.$queryRaw<{ mediaPdfUrl: string | null; brandName: string | null }[]>`
+                SELECT "mediaPdfUrl", "brandName" FROM "BrandProfile" WHERE "workspaceId" = ${membership.workspaceId} LIMIT 1
+            `;
+            if (rows[0]?.mediaPdfUrl) {
+                attachmentUrl = rows[0].mediaPdfUrl;
+                attachmentName = `${rows[0].brandName ?? "media"}-card.pdf`;
             }
         }
     }

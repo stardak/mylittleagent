@@ -1,9 +1,7 @@
 /**
  * POST /api/media-card/upload-pdf
  * Upload a PDF file and store the URL in BrandProfile.mediaPdfUrl.
- * Accepts multipart/form-data with a "file" field.
- * Uses Vercel Blob storage if configured, otherwise falls back to a base64 data URL
- * that we store in the DB (works fine for small PDFs up to ~10MB).
+ * Uses Vercel Blob storage.
  */
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
@@ -40,7 +38,6 @@ export async function POST(req: Request) {
 
     let url: string;
     try {
-        // Use Vercel Blob for hosting
         const blob = await put(`media-cards/${workspaceId}/${file.name}`, file, {
             access: "public",
             contentType: "application/pdf",
@@ -50,18 +47,15 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Upload failed — check Vercel Blob is configured (BLOB_READ_WRITE_TOKEN)" }, { status: 500 });
     }
 
-    // Persist in BrandProfile
-    const existingBp = await prisma.brandProfile.findUnique({ where: { workspaceId } });
-    if (existingBp) {
-        await prisma.brandProfile.update({ where: { workspaceId }, data: { mediaPdfUrl: url } });
-    } else {
-        await prisma.brandProfile.create({ data: { workspaceId, mediaPdfUrl: url } });
-    }
+    // Use raw SQL to update mediaPdfUrl — avoids stale Prisma TS types during build
+    await prisma.$executeRaw`
+        UPDATE "BrandProfile" SET "mediaPdfUrl" = ${url} WHERE "workspaceId" = ${workspaceId}
+    `;
 
     return NextResponse.json({ url });
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(_req: Request) {
     const session = await auth();
     if (!session?.user?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -69,9 +63,8 @@ export async function DELETE(req: Request) {
     const workspaceId = await getWorkspaceId(session.user.id);
     if (!workspaceId) return NextResponse.json({ error: "No workspace" }, { status: 400 });
 
-    await prisma.brandProfile.update({
-        where: { workspaceId },
-        data: { mediaPdfUrl: null },
-    });
+    await prisma.$executeRaw`
+        UPDATE "BrandProfile" SET "mediaPdfUrl" = NULL WHERE "workspaceId" = ${workspaceId}
+    `;
     return NextResponse.json({ success: true });
 }
