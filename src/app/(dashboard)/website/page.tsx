@@ -374,7 +374,7 @@ export default function WebsitePage() {
                 <div className="flex-1 overflow-hidden">
                     <iframe
                         key={iframeKey}
-                        src={`/${website.slug}/website`}
+                        src={`/${website.slug}/website?preview=1`}
                         className="w-full h-full border-0"
                         title="Website Preview"
                     />

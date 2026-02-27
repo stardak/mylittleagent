@@ -1,16 +1,12 @@
-/**
- * Public creator website page
- * Route: /[slug]/website
- * Fully server-rendered for SEO
- */
-
 import { notFound } from "next/navigation";
 import prisma from "@/lib/prisma";
 import type { Metadata } from "next";
 import { WebsiteRenderer } from "./_sections/WebsiteRenderer";
+import { auth } from "@/lib/auth";
 
 interface Props {
     params: Promise<{ slug: string }>;
+    searchParams: Promise<{ preview?: string }>;
 }
 
 async function getWebsiteData(slug: string) {
@@ -59,15 +55,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
 }
 
-export default async function CreatorWebsitePage({ params }: Props) {
+export default async function CreatorWebsitePage({ params, searchParams }: Props) {
     const { slug } = await params;
+    const { preview } = await searchParams;
     const website = await getWebsiteData(slug);
 
     if (!website) {
         notFound();
     }
 
-    if (!website.isPublished) {
+    // Allow preview mode (from the editor iframe) if user is authenticated
+    const isPreviewMode = preview === "1" && !!(await auth())?.user?.id;
+
+    if (!website.isPublished && !isPreviewMode) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[#0e0e0e]">
                 <div className="text-center px-6">
@@ -85,6 +85,7 @@ export default async function CreatorWebsitePage({ params }: Props) {
             </div>
         );
     }
+
 
     const { workspace } = website;
     const profile = workspace.brandProfile;
