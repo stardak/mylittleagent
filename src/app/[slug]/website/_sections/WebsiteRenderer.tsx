@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * WebsiteRenderer — client component that assembles all sections
- * in the order defined by `sections` config, respecting visibility.
+ * WebsiteRenderer — assembles sections in order, respecting visibility.
+ * Supports both public (read-only) and editor (editable) modes.
  */
 
 import { BrandProfile, Platform, CaseStudy, Testimonial } from "@prisma/client";
@@ -22,6 +22,23 @@ interface WebsiteConfig {
     theme: unknown;
 }
 
+export interface SectionProps {
+    profile: BrandProfile | null;
+    platforms: Platform[];
+    caseStudies: CaseStudy[];
+    testimonials: Testimonial[];
+    accentColor: string;
+    headingFont: string;
+    slug: string;
+    heroVideoUrl?: string | null;
+    /** Flat map of copy overrides: "hero.headline" → "Custom text" */
+    copyOverrides?: Record<string, string>;
+    /** Enables click-to-edit overlays on each text element */
+    editMode?: boolean;
+    /** Called when user saves an edit in the editor */
+    onEdit?: (field: string, value: string) => void;
+}
+
 interface Props {
     website: WebsiteConfig;
     profile: BrandProfile | null;
@@ -32,6 +49,9 @@ interface Props {
     accentColor: string;
     headingFont: string;
     slug: string;
+    copyOverrides?: Record<string, string>;
+    editMode?: boolean;
+    onEdit?: (field: string, value: string) => void;
 }
 
 const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
@@ -45,17 +65,6 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType<SectionProps>> = {
     contact: ContactSection,
 };
 
-export interface SectionProps {
-    profile: BrandProfile | null;
-    platforms: Platform[];
-    caseStudies: CaseStudy[];
-    testimonials: Testimonial[];
-    accentColor: string;
-    headingFont: string;
-    slug: string;
-    heroVideoUrl?: string | null;
-}
-
 export function WebsiteRenderer({
     website,
     profile,
@@ -66,6 +75,9 @@ export function WebsiteRenderer({
     accentColor,
     headingFont,
     slug,
+    copyOverrides = {},
+    editMode = false,
+    onEdit,
 }: Props) {
     const sectionProps: SectionProps = {
         profile,
@@ -76,6 +88,9 @@ export function WebsiteRenderer({
         headingFont,
         slug,
         heroVideoUrl: website.heroVideoUrl,
+        copyOverrides,
+        editMode,
+        onEdit,
     };
 
     return (

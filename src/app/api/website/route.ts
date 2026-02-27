@@ -37,7 +37,12 @@ export async function GET() {
         // Auto-create from workspace slug if not yet existing
         const workspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
-            select: { slug: true },
+            include: {
+                brandProfile: true,
+                platforms: { orderBy: { followers: "desc" } },
+                caseStudies: { orderBy: [{ featured: "desc" }, { createdAt: "desc" }] },
+                testimonials: { orderBy: [{ featured: "desc" }, { createdAt: "desc" }] },
+            },
         });
         if (!workspace) {
             return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
@@ -53,7 +58,13 @@ export async function GET() {
             },
         });
 
-        return NextResponse.json({ website });
+        return NextResponse.json({
+            website,
+            profile: workspace.brandProfile,
+            platforms: workspace.platforms,
+            caseStudies: workspace.caseStudies,
+            testimonials: workspace.testimonials,
+        });
     } catch (error) {
         console.error("GET /api/website error:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });

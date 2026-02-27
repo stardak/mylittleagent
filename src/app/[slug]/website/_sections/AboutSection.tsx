@@ -1,37 +1,37 @@
 "use client";
 
 import { SectionProps } from "./WebsiteRenderer";
+import { EditableField } from "@/components/website/EditableField";
 
-export function AboutSection({ profile, accentColor, headingFont }: SectionProps) {
-    if (!profile?.bio && !profile?.keyDifferentiators) return null;
+export function AboutSection({ profile, accentColor, headingFont, copyOverrides = {}, editMode, onEdit }: SectionProps) {
+    const bio = copyOverrides["about.bio"] ?? profile?.bio ?? "";
+    const heading = copyOverrides["about.heading"] ?? profile?.tagline ?? "The Story Behind the Brand";
+    const paragraphs = bio.split("\n\n").filter(Boolean);
+    const differentiators = (copyOverrides["about.differentiators"] ?? profile?.keyDifferentiators ?? "")
+        .split("\n").filter(Boolean);
 
-    const paragraphs = profile?.bio?.split("\n\n").filter(Boolean) ?? [];
-    const differentiators = profile?.keyDifferentiators?.split("\n").filter(Boolean) ?? [];
+    if (!bio && !editMode) return null;
 
     return (
         <section id="about" className="py-24 md:py-32 bg-white">
             <div className="max-w-7xl mx-auto px-6 lg:px-10">
                 <div className="grid lg:grid-cols-2 gap-16 items-center">
                     <div>
-                        <p
-                            className="text-sm tracking-[0.25em] uppercase font-medium mb-4"
-                            style={{ color: accentColor }}
-                        >
-                            About
-                        </p>
-                        <h2
-                            className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] mb-8 leading-tight"
-                            style={{ fontFamily: headingFont }}
-                        >
-                            {profile?.tagline ?? "The Story Behind the Brand"}
-                        </h2>
+                        <p className="text-sm tracking-[0.25em] uppercase font-medium mb-4" style={{ color: accentColor }}>About</p>
 
-                        <div className="space-y-4 text-[#1a1a1a]/70 text-lg leading-relaxed">
-                            {paragraphs.length > 0
-                                ? paragraphs.map((p, i) => <p key={i}>{p}</p>)
-                                : <p>{profile?.bio}</p>
-                            }
-                        </div>
+                        <EditableField field="about.heading" value={heading} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block mb-8">
+                            <h2 className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] leading-tight" style={{ fontFamily: headingFont }}>
+                                {heading}
+                            </h2>
+                        </EditableField>
+
+                        <EditableField field="about.bio" value={bio} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block">
+                            <div className="space-y-4 text-[#1a1a1a]/70 text-lg leading-relaxed">
+                                {paragraphs.length > 0
+                                    ? paragraphs.map((p, i) => <p key={i}>{p}</p>)
+                                    : <p className="italic opacity-40">Add your bio here...</p>}
+                            </div>
+                        </EditableField>
 
                         {profile?.location && (
                             <div className="mt-8 flex items-center gap-2 text-sm text-[#1a1a1a]/50">
@@ -44,27 +44,24 @@ export function AboutSection({ profile, accentColor, headingFont }: SectionProps
                         )}
                     </div>
 
-                    {differentiators.length > 0 && (
+                    {(differentiators.length > 0 || editMode) && (
                         <div className="space-y-5">
-                            <p
-                                className="text-sm tracking-[0.25em] uppercase font-medium"
-                                style={{ color: accentColor }}
-                            >
-                                What Sets Me Apart
-                            </p>
-                            {differentiators.map((d, i) => (
-                                <div key={i} className="flex items-start gap-4">
-                                    <div
-                                        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                                        style={{ backgroundColor: accentColor }}
-                                    >
-                                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </div>
-                                    <p className="text-[#1a1a1a]/80 text-base leading-relaxed">{d}</p>
+                            <p className="text-sm tracking-[0.25em] uppercase font-medium" style={{ color: accentColor }}>What Sets Me Apart</p>
+                            <EditableField field="about.differentiators" value={differentiators.join("\n")} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block">
+                                <div className="space-y-4">
+                                    {differentiators.map((d, i) => (
+                                        <div key={i} className="flex items-start gap-4">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: accentColor }}>
+                                                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </div>
+                                            <p className="text-[#1a1a1a]/80 text-base leading-relaxed">{d}</p>
+                                        </div>
+                                    ))}
+                                    {!differentiators.length && <p className="italic opacity-40 text-sm">Add key differentiators (one per line)...</p>}
                                 </div>
-                            ))}
+                            </EditableField>
                         </div>
                     )}
                 </div>
