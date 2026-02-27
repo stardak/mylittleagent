@@ -3,12 +3,12 @@
 import { SectionProps } from "./WebsiteRenderer";
 import { EditableField } from "@/components/website/EditableField";
 
-export function PlatformStatsSection({ platforms, profile, accentColor, headingFont, copyOverrides = {}, editMode, onEdit }: SectionProps) {
+export function PlatformStatsSection({ platforms, accentColor, headingFont, copyOverrides = {}, editMode, onEdit }: SectionProps) {
     if (platforms.length === 0 && !editMode) return null;
 
     const combinedFollowers = platforms.reduce((sum, p) => sum + (p.followers ?? 0), 0);
     const sectionHeading = copyOverrides["stats.heading"] ?? "Audience that listens, watches and acts.";
-    const audienceSummary = copyOverrides["stats.audienceSummary"] ?? profile?.audienceSummary ?? "";
+
 
     const formatNum = (n: number) => {
         if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M+`;
@@ -74,16 +74,7 @@ export function PlatformStatsSection({ platforms, profile, accentColor, headingF
                     </div>
                 )}
 
-                {(audienceSummary || editMode) && (
-                    <div className="rounded-2xl p-6 md:p-8 border" style={{ backgroundColor: accentColor + "0d", borderColor: accentColor + "33" }}>
-                        <EditableField field="stats.audienceSummary" value={audienceSummary} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block">
-                            <p className="text-[#1a1a1a]/80 text-lg">
-                                <span className="font-semibold" style={{ color: accentColor }}>Audience Insight: </span>
-                                {audienceSummary || <span className="italic opacity-40">Add your audience insight...</span>}
-                            </p>
-                        </EditableField>
-                    </div>
-                )}
+
             </div>
         </section>
     );
