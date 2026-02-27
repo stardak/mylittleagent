@@ -13,7 +13,7 @@ import {
     Calendar,
     FileText,
     Mail,
-    BarChart3,
+    Globe,
     Settings,
     LogOut,
     ChevronDown,
@@ -40,9 +40,10 @@ const navigation = [
     { name: "Calendar", href: "/calendar", icon: Calendar },
     { name: "Invoices", href: "/invoices", icon: FileText },
     { name: "Templates", href: "/templates", icon: Mail },
-    { name: "Analytics", href: "/analytics", icon: BarChart3 },
+
     { name: "Media Card", href: "/media-card", icon: CreditCard },
     { name: "Rate Card", href: "/rate-card", icon: FileText },
+    { name: "My Website", href: "/website", icon: Globe },
     { name: "Settings", href: "/settings", icon: Settings },
 ];
 

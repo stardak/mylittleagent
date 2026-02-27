@@ -55,7 +55,7 @@ export async function GET(
                 ? platforms.reduce((sum, p) => sum + (p.engagementRate || 0), 0) / platforms.length
                 : 0;
 
-        return NextResponse.json({
+        const responseBody = {
             brand: {
                 name: bp.brandName,
                 tagline: bp.tagline,
@@ -82,7 +82,6 @@ export async function GET(
                     (name) => !(bp.previousBrands || []).includes(name)
                 ),
             ],
-
             portfolio: caseStudies.map((cs) => ({
                 brandName: cs.brandName,
                 result: cs.result,
@@ -101,6 +100,13 @@ export async function GET(
                 followers: totalFollowers,
                 avgEngagement: Math.round(avgEngagement * 100) / 100,
                 platformCount: platforms.length,
+            },
+        };
+
+        return NextResponse.json(responseBody, {
+            headers: {
+                // CDN caches per slug for 60 s; serves stale for up to 5 min while revalidating
+                "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
             },
         });
     } catch (error) {

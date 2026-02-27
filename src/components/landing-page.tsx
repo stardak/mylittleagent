@@ -859,13 +859,13 @@ function LandingFooter() {
 
                     {/* Links */}
                     <div className="flex items-center gap-6 text-sm text-zinc-600">
-                        <a href="#" className="hover:text-zinc-400 transition-colors">
+                        <Link href="/privacy" className="hover:text-zinc-400 transition-colors">
                             Privacy
-                        </a>
-                        <a href="#" className="hover:text-zinc-400 transition-colors">
+                        </Link>
+                        <Link href="/terms" className="hover:text-zinc-400 transition-colors">
                             Terms
-                        </a>
-                        <a href="#" className="hover:text-zinc-400 transition-colors">
+                        </Link>
+                        <a href="mailto:hello@mylittleagent.co" className="hover:text-zinc-400 transition-colors">
                             Support
                         </a>
                     </div>

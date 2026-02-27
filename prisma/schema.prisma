@@ -97,6 +97,7 @@ model Workspace {
   emailTemplates       EmailTemplate[]
   conversations        Conversation[]
   outreaches           Outreach[]
+  creatorWebsite       CreatorWebsite?
 }
 
 model Membership {
@@ -524,6 +525,27 @@ model Outreach {
 
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+// ============================================================
+// CREATOR WEBSITE BUILDER
+// ============================================================
+
+model CreatorWebsite {
+  id             String    @id @default(cuid())
+  workspaceId    String    @unique
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  isPublished    Boolean   @default(false)
+  slug           String    @unique            // defaults to workspace.slug
+  heroVideoUrl   String?                      // optional background video URL
+  // sections: ordered array of { id: string, visible: boolean }
+  // IDs: hero | about | stats | work | services | partners | testimonials | contact
+  sections       Json      @default("[{\"id\":\"hero\",\"visible\":true},{\"id\":\"about\",\"visible\":true},{\"id\":\"stats\",\"visible\":true},{\"id\":\"work\",\"visible\":true},{\"id\":\"services\",\"visible\":true},{\"id\":\"partners\",\"visible\":true},{\"id\":\"testimonials\",\"visible\":true},{\"id\":\"contact\",\"visible\":true}]")
+  theme          Json?                        // { accentColor, headingFont, darkMode }
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 }
 
 // ============================================================
