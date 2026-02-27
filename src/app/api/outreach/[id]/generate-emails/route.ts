@@ -130,8 +130,19 @@ Brand: ${outreach.brandName}
 ${outreach.brandIndustry ? `Industry: ${outreach.brandIndustry}` : ""}
 ${outreach.brandUrl ? `Website: ${outreach.brandUrl}` : ""}
 Contact Email: ${outreach.contactEmail}
-Product/Service: ${outreach.product}
-${outreach.fitReason ? `Why I'm a good fit: ${outreach.fitReason}` : ""}`);
+Product/Service: ${outreach.product}`);
+
+        // ── Collab angle — most important personalisation signal ──────────────
+        if (outreach.fitReason) {
+            contextParts.push(`=== WHY THIS COLLAB WOULD WORK (CRITICAL — use this to personalise Email 1) ===
+${outreach.fitReason}
+
+IMPORTANT: this note is the creator's own words about why this partnership makes sense. Let it shape the opening and angle of the email. For example:
+- If they mention working together before → warmly reference the previous collaboration and build on that history
+- If they mention being a genuine fan/user of the product → make that authentic love the hook of the email, not stats
+- If they mention audience alignment → weave in the specific data point that supports it
+Never include this section verbatim — instead let it naturally inform the tone and angle of the email.`);
+        }
 
         if (outreach.includeMediaCard && workspace?.slug) {
             contextParts.push(`=== MEDIA CARD LINK ===\nThe creator wants to include a link to their public media card in the email. Use this exact URL: ${process.env.NEXTAUTH_URL || "https://app.mylittleagent.com"}/${workspace.slug}/mediacard`);

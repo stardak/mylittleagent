@@ -756,10 +756,10 @@ function OutreachPageInner() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Why you&apos;re a great fit <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                                    <Label>Why this collab would work <span className="text-muted-foreground font-normal">(optional — AI reads this to tailor your pitch)</span></Label>
                                     <Textarea
                                         rows={3}
-                                        placeholder="e.g. I already use this product daily, my audience is 70% their target demographic..."
+                                        placeholder={"e.g. We've worked together before · We genuinely use and love your products · My audience is 70% your target demographic · We've been customers for years · We love your brand story..."}
                                         value={newOutreach.fitReason}
                                         onChange={(e) => setNewOutreach({ ...newOutreach, fitReason: e.target.value })}
                                         className="resize-none"
@@ -1174,7 +1174,7 @@ function OutreachPageInner() {
                                         )}
                                         {selected.fitReason && (
                                             <div className="col-span-2">
-                                                <p className="text-xs text-muted-foreground">Why you&apos;re a great fit</p>
+                                                <p className="text-xs text-muted-foreground">Why this collab would work</p>
                                                 <p className="text-sm mt-0.5">{selected.fitReason}</p>
                                             </div>
                                         )}
