@@ -81,6 +81,7 @@ type OnboardingData = {
         authorTitle: string;
         company: string;
     }[];
+    previousBrands: string[];
     businessName: string;
     businessAddress: string;
     vatNumber: string;
@@ -108,6 +109,7 @@ const initialData: OnboardingData = {
     audienceSummary: "",
     caseStudies: [],
     testimonials: [],
+    previousBrands: [],
     businessName: "",
     businessAddress: "",
     vatNumber: "",
@@ -260,6 +262,20 @@ export default function OnboardingPage() {
 
     const removeCategory = (cat: string) => {
         updateData({ contentCategories: data.contentCategories.filter((c) => c !== cat) });
+    };
+
+    const [newBrand, setNewBrand] = useState("");
+
+    const addBrand = () => {
+        const trimmed = newBrand.trim();
+        if (trimmed && !data.previousBrands.includes(trimmed)) {
+            updateData({ previousBrands: [...data.previousBrands, trimmed] });
+            setNewBrand("");
+        }
+    };
+
+    const removeBrand = (brand: string) => {
+        updateData({ previousBrands: data.previousBrands.filter((b) => b !== brand) });
     };
 
     const saveAndContinue = async () => {
@@ -946,8 +962,40 @@ export default function OnboardingPage() {
                                 ))}
                                 <Button variant="outline" onClick={addCaseStudy} className="w-full gap-2">
                                     <Plus className="h-4 w-4" />
-                                    Add Case Study
+                                    Add Showcase / Case Study
                                 </Button>
+
+                                <Separator />
+
+                                {/* Brands worked with — quick tag list */}
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="text-sm font-medium">Brands you&apos;ve worked with</p>
+                                        <p className="text-xs text-muted-foreground mt-0.5">A quick list of brand names — the AI uses this to show credibility in pitches.</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {data.previousBrands.map((brand) => (
+                                            <Badge key={brand} variant="secondary" className="gap-1.5 pl-3 pr-1.5 py-1.5">
+                                                {brand}
+                                                <button onClick={() => removeBrand(brand)} className="hover:bg-foreground/10 rounded p-0.5">
+                                                    <X className="h-3 w-3" />
+                                                </button>
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input
+                                            placeholder="e.g. Land Rover, BMW, Disney..."
+                                            value={newBrand}
+                                            onChange={(e) => setNewBrand(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addBrand(); } }}
+                                            className="max-w-xs"
+                                        />
+                                        <Button variant="outline" size="sm" onClick={addBrand}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
                     )}

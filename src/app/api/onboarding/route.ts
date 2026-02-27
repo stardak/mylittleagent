@@ -47,6 +47,7 @@ export async function GET() {
                 engagementRate: p.engagementRate?.toString() || "",
             })),
             audienceSummary: brandProfile?.audienceSummary || "",
+            previousBrands: brandProfile?.previousBrands || [],
             caseStudies: caseStudies.map((cs) => ({
                 brandName: cs.brandName,
                 industry: cs.industry || "",
@@ -160,7 +161,12 @@ export async function POST(req: Request) {
                 break;
 
             case "casestudies":
-                // Delete existing, then create new
+                // Save previousBrands list to BrandProfile
+                await prisma.brandProfile.update({
+                    where: { workspaceId },
+                    data: { previousBrands: data.previousBrands || [] },
+                });
+                // Delete existing case studies, then create new
                 await prisma.caseStudy.deleteMany({ where: { workspaceId } });
                 if (data.caseStudies?.length > 0) {
                     await prisma.caseStudy.createMany({

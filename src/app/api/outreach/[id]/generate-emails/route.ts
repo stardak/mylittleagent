@@ -98,7 +98,11 @@ ${profile.audienceSummary ? `Audience: ${profile.audienceSummary}` : ""}`);
             const csLines = caseStudies.map(
                 (cs) => `- ${cs.brandName} (${cs.industry || "N/A"}): ${cs.result}`
             );
-            contextParts.push(`=== PAST BRAND WORK ===\n${csLines.join("\n")}`);
+            contextParts.push(`=== PAST BRAND WORK (SHOWCASES) ===\n${csLines.join("\n")}`);
+        }
+
+        if (profile.previousBrands?.length > 0) {
+            contextParts.push(`=== BRANDS WORKED WITH ===\n${profile.previousBrands.join(", ")}\nUse this list to demonstrate credibility where relevant. Don't list them all — pick the most relevant one or two for this particular brand's industry.`);
         }
 
         // Scrape brand website for context if URL provided

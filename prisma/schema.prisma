@@ -149,6 +149,8 @@ model BrandProfile {
   currency           String    @default("GBP")
   // Audience summary
   audienceSummary    String?   @db.Text
+  // Previous brand partnerships (list of brand names)
+  previousBrands     String[]  @default([])
   updatedAt          DateTime  @updatedAt
 }
 
