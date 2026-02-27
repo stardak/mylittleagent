@@ -19,6 +19,9 @@ import {
     Lock,
     Unlock,
     RefreshCw,
+    Camera,
+    ImagePlus,
+    Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,6 +75,8 @@ export default function WebsitePage() {
     const [iframeKey, setIframeKey] = useState(0);
     const [seoTitle, setSeoTitle] = useState("");
     const [seoDescription, setSeoDescription] = useState("");
+    const [uploadingHero, setUploadingHero] = useState(false);
+    const heroFileRef = useRef<HTMLInputElement>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fetchWebsite = useCallback(async () => {
@@ -285,6 +290,77 @@ export default function WebsitePage() {
                     <Button className="w-full gap-2 bg-brand hover:bg-brand/90 text-white h-8 text-sm" onClick={() => setAiPanelOpen(true)}>
                         <Sparkles className="h-3.5 w-3.5" />AI Website Builder
                     </Button>
+                </div>
+
+                {/* Hero Image */}
+                <div className="p-4 border-b space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-widest">Hero Image</Label>
+                    <input
+                        ref={heroFileRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingHero(true);
+                            try {
+                                const fd = new FormData();
+                                fd.append("file", file);
+                                const res = await fetch("/api/upload", { method: "POST", body: fd });
+                                if (res.ok) {
+                                    const { url } = await res.json();
+                                    handleFieldEdit("hero.imageUrl", url);
+                                    toast.success("Hero image updated!");
+                                }
+                            } catch { toast.error("Upload failed"); }
+                            finally { setUploadingHero(false); if (heroFileRef.current) heroFileRef.current.value = ""; }
+                        }}
+                    />
+                    {/* Preview thumbnail */}
+                    {copyOverrides["hero.imageUrl"] || profile?.heroImageUrl ? (
+                        <div className="relative rounded-lg overflow-hidden aspect-video bg-muted">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={copyOverrides["hero.imageUrl"] ?? profile?.heroImageUrl ?? ""}
+                                alt="Hero"
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 hover:opacity-100 bg-black/40 transition-opacity">
+                                <button
+                                    onClick={() => heroFileRef.current?.click()}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/90 text-xs font-medium"
+                                >
+                                    <Camera className="h-3 w-3" />Change
+                                </button>
+                                {copyOverrides["hero.imageUrl"] && (
+                                    <button
+                                        onClick={() => handleFieldEdit("hero.imageUrl", "")}
+                                        className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/90 text-xs font-medium text-red-600"
+                                    >
+                                        <Trash2 className="h-3 w-3" />Reset
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-7 text-xs gap-1.5"
+                        onClick={() => heroFileRef.current?.click()}
+                        disabled={uploadingHero}
+                    >
+                        {uploadingHero
+                            ? <><Loader2 className="h-3 w-3 animate-spin" />Uploading...</>
+                            : <><ImagePlus className="h-3 w-3" />{copyOverrides["hero.imageUrl"] ? "Replace Image" : "Upload Hero Image"}</>
+                        }
+                    </Button>
+                    {copyOverrides["hero.imageUrl"] && (
+                        <p className="text-[10px] text-muted-foreground text-center">
+                            Using website-specific image · <button className="underline" onClick={() => handleFieldEdit("hero.imageUrl", "")}>Reset to profile image</button>
+                        </p>
+                    )}
                 </div>
 
                 {/* URL Slug */}
