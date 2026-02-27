@@ -9,7 +9,6 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
     const combinedFollowers = platforms.reduce((sum, p) => sum + (p.followers ?? 0), 0);
     const sectionHeading = copyOverrides["stats.heading"] ?? "Audience that listens, watches and acts.";
 
-
     const formatNum = (n: number) => {
         if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(0)}M+`;
         if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K+`;
@@ -26,11 +25,11 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
 
     return (
         <section id="stats" className="py-24 md:py-32 bg-[#f9f8f6]">
-            <div className="max-w-7xl mx-auto px-6 lg:px-10">
+            <div className="max-w-7xl mx-auto px-6 lg:px-10 text-center">
                 <div className="mb-16">
                     <p className="text-sm tracking-[0.25em] uppercase font-medium mb-4" style={{ color: accentColor }}>Our Reach</p>
                     <EditableField field="stats.heading" value={sectionHeading} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block">
-                        <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold text-[#1a1a1a] mb-6 max-w-3xl leading-tight" style={{ fontFamily: headingFont }}>
+                        <h2 className="text-4xl md:text-5xl lg:text-6xl font-semibold text-[#1a1a1a] mb-6 max-w-3xl mx-auto leading-tight" style={{ fontFamily: headingFont }}>
                             {sectionHeading}
                         </h2>
                     </EditableField>
@@ -38,7 +37,7 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
                     {platforms.slice(0, 4).map((platform) => (
-                        <div key={platform.id} className="bg-white rounded-2xl p-6 shadow-sm">
+                        <div key={platform.id} className="bg-white rounded-2xl p-6 shadow-sm text-left">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white mb-5"
                                 style={{ backgroundColor: getPlatformColor(platform.type) }}>
                                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z" /></svg>
@@ -73,8 +72,6 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
                         </div>
                     </div>
                 )}
-
-
             </div>
         </section>
     );

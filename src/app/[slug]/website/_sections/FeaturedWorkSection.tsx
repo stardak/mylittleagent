@@ -24,14 +24,14 @@ export function FeaturedWorkSection({ caseStudies, accentColor, headingFont, cop
 
     return (
         <section id="work" className="py-24 md:py-32 bg-white">
-            <div className="max-w-7xl mx-auto px-6 lg:px-10">
+            <div className="max-w-7xl mx-auto px-6 lg:px-10 text-center">
                 <div className="mb-16">
                     <p className="text-sm tracking-[0.25em] uppercase font-medium mb-4" style={{ color: accentColor }}>Featured Work</p>
                     <EditableField field="work.heading" value={sectionHeading} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block">
-                        <h2 className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] leading-tight" style={{ fontFamily: headingFont }}>{sectionHeading}</h2>
+                        <h2 className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] leading-tight max-w-3xl mx-auto" style={{ fontFamily: headingFont }}>{sectionHeading}</h2>
                     </EditableField>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
                     {caseStudies.slice(0, 6).map((cs) => {
                         const ytId = getYouTubeId(cs.contentUrl);
                         return (

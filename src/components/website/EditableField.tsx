@@ -60,7 +60,7 @@ export function EditableField({
                             if (e.key === "Escape") cancel();
                         }}
                         rows={4}
-                        className="block w-full bg-white/10 backdrop-blur-sm border-2 rounded-xl p-3 outline-none resize-y text-inherit text-sm leading-relaxed"
+                        className="block w-full bg-white text-[#1a1a1a] border-2 rounded-xl p-3 outline-none resize-y text-sm leading-relaxed shadow-xl"
                         style={{ borderColor: accentColor, minHeight: 80 }}
                     />
                 ) : (
@@ -73,8 +73,8 @@ export function EditableField({
                             if (e.key === "Enter") save();
                             if (e.key === "Escape") cancel();
                         }}
-                        className="block w-full bg-white/10 backdrop-blur-sm border-2 rounded-xl px-3 py-2 outline-none text-inherit"
-                        style={{ borderColor: accentColor, fontSize: "inherit", fontFamily: "inherit" }}
+                        className="block w-full bg-white text-[#1a1a1a] border-2 rounded-xl px-3 py-2 outline-none shadow-xl"
+                        style={{ borderColor: accentColor }}
                     />
                 )}
                 <div className="flex gap-2 mt-2">

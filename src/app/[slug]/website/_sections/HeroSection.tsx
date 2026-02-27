@@ -51,7 +51,6 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
         platforms.length > 0 && { label: "Platforms", value: String(platforms.length) },
     ].filter(Boolean) as { label: string; value: string }[];
 
-    // Resolve values: copy override → profile → fallback
     const headline = copyOverrides["hero.headline"] ?? profile?.brandName?.toUpperCase() ?? "CREATOR";
     const tagline = copyOverrides["hero.tagline"] ?? profile?.tagline ?? "";
     const bio = copyOverrides["hero.bio"] ?? profile?.bio?.split("\n")[0] ?? "";
@@ -70,18 +69,11 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
                 ) : heroImageUrl ? (
                     <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${heroImageUrl})` }} />
                 ) : null}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/40" />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/60 to-black/80" />
 
-                {/* Image upload overlay — only in edit mode */}
                 {editMode && (
                     <>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleImageUpload}
-                        />
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
@@ -98,65 +90,63 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
                 )}
             </div>
 
-            <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 w-full py-32 md:py-40">
-                <div className="max-w-2xl">
-                    {location && (
-                        <EditableField field="hero.location" value={location} editMode={editMode} onEdit={onEdit} accentColor={accentColor}>
-                            <p className="text-sm tracking-[0.25em] uppercase font-medium mb-6" style={{ color: accentColor }}>
-                                {location}
-                            </p>
-                        </EditableField>
-                    )}
-
-                    <EditableField field="hero.headline" value={headline} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block mb-6">
-                        <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold text-white leading-[0.95]"
-                            style={{ fontFamily: headingFont }}>
-                            {headline}
-                        </h1>
+            <div className="relative z-10 max-w-4xl mx-auto px-6 lg:px-10 w-full py-32 md:py-40 text-center">
+                {location && (
+                    <EditableField field="hero.location" value={location} editMode={editMode} onEdit={onEdit} accentColor={accentColor}>
+                        <p className="text-sm tracking-[0.25em] uppercase font-medium mb-6" style={{ color: accentColor }}>
+                            {location}
+                        </p>
                     </EditableField>
+                )}
 
-                    {(tagline || editMode) && (
-                        <EditableField field="hero.tagline" value={tagline} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block mb-6">
-                            <p className="text-xl md:text-2xl text-white/80 font-light" style={{ fontFamily: headingFont }}>
-                                {tagline || <span className="opacity-40 italic">Add a tagline...</span>}
-                            </p>
-                        </EditableField>
-                    )}
+                <EditableField field="hero.headline" value={headline} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block mb-6">
+                    <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold text-white leading-[0.95]"
+                        style={{ fontFamily: headingFont }}>
+                        {headline}
+                    </h1>
+                </EditableField>
 
-                    {(bio || editMode) && (
-                        <EditableField field="hero.bio" value={bio} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block mb-10">
-                            <p className="text-lg text-white/60 leading-relaxed">
-                                {bio || <span className="opacity-40 italic">Add a short intro...</span>}
-                            </p>
-                        </EditableField>
-                    )}
+                {(tagline || editMode) && (
+                    <EditableField field="hero.tagline" value={tagline} editMode={editMode} onEdit={onEdit} accentColor={accentColor} wrapClassName="block mb-6">
+                        <p className="text-xl md:text-2xl text-white/80 font-light" style={{ fontFamily: headingFont }}>
+                            {tagline || <span className="opacity-40 italic">Add a tagline...</span>}
+                        </p>
+                    </EditableField>
+                )}
 
-                    {!editMode && (
-                        <div className="flex flex-wrap gap-4 mb-16">
-                            <a href="#contact"
-                                className="inline-flex items-center gap-2 px-8 py-3.5 text-white text-sm tracking-widest uppercase rounded-full transition-all duration-300 hover:opacity-90"
-                                style={{ backgroundColor: accentColor }}>
-                                Work With Me
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                            </a>
-                            <a href="#about"
-                                className="inline-flex items-center gap-2 px-8 py-3.5 border border-white/30 text-white text-sm tracking-widest uppercase rounded-full hover:border-white/60 transition-colors duration-300">
-                                Learn More
-                            </a>
-                        </div>
-                    )}
+                {(bio || editMode) && (
+                    <EditableField field="hero.bio" value={bio} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block mb-10">
+                        <p className="text-lg text-white/60 leading-relaxed max-w-2xl mx-auto">
+                            {bio || <span className="opacity-40 italic">Add a short intro...</span>}
+                        </p>
+                    </EditableField>
+                )}
 
-                    {stats.length > 0 && (
-                        <div className="grid grid-cols-3 gap-6 md:gap-12 max-w-xl">
-                            {stats.map((stat) => (
-                                <div key={stat.label}>
-                                    <p className="text-3xl md:text-4xl font-semibold text-white" style={{ fontFamily: headingFont }}>{stat.value}</p>
-                                    <p className="text-xs text-white/50 tracking-widest uppercase mt-1">{stat.label}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                {!editMode && (
+                    <div className="flex flex-wrap gap-4 mb-16 justify-center">
+                        <a href="#contact"
+                            className="inline-flex items-center gap-2 px-8 py-3.5 text-white text-sm tracking-widest uppercase rounded-full transition-all duration-300 hover:opacity-90"
+                            style={{ backgroundColor: accentColor }}>
+                            Work With Me
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                        </a>
+                        <a href="#about"
+                            className="inline-flex items-center gap-2 px-8 py-3.5 border border-white/30 text-white text-sm tracking-widest uppercase rounded-full hover:border-white/60 transition-colors duration-300">
+                            Learn More
+                        </a>
+                    </div>
+                )}
+
+                {stats.length > 0 && (
+                    <div className="grid grid-cols-3 gap-6 md:gap-12 max-w-xl mx-auto">
+                        {stats.map((stat) => (
+                            <div key={stat.label}>
+                                <p className="text-3xl md:text-4xl font-semibold text-white" style={{ fontFamily: headingFont }}>{stat.value}</p>
+                                <p className="text-xs text-white/50 tracking-widest uppercase mt-1">{stat.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {!editMode && (

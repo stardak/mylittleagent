@@ -10,7 +10,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            // Allow YouTube and Vimeo iframes to load within pages
+            key: "Content-Security-Policy",
+            value: "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+          },
+        ],
+      },
+    ];
+  },
 };
+
 
 export default withSentryConfig(nextConfig, {
   // Sentry organisation + project (set via Vercel env vars or .env)
