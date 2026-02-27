@@ -90,7 +90,13 @@ export async function GET() {
                 avgViews: p.avgViews,
                 engagementRate: p.engagementRate,
             })),
-            brandPartners: caseStudies.map((cs) => cs.brandName),
+            brandPartners: [
+                ...(brandProfile.previousBrands || []),
+                ...caseStudies.map((cs) => cs.brandName).filter(
+                    (name) => !(brandProfile.previousBrands || []).includes(name)
+                ),
+            ],
+
             portfolio: caseStudies.map((cs) => ({
                 brandName: cs.brandName,
                 result: cs.result,
