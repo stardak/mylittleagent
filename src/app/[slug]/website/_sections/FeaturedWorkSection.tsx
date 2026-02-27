@@ -3,6 +3,7 @@
 import { SectionProps } from "./WebsiteRenderer";
 import { EditableField } from "@/components/website/EditableField";
 import Image from "next/image";
+import { useState } from "react";
 
 /** Extract YouTube video ID from any youtube.com or youtu.be URL */
 function getYouTubeId(url: string | null | undefined): string | null {
@@ -16,6 +17,56 @@ function getYouTubeId(url: string | null | undefined): string | null {
         if (m) return m[1];
     }
     return null;
+}
+
+/** Click-to-play YouTube embed — shows thumbnail first, loads player on click */
+function YouTubeCard({ videoId, title, accentColor }: { videoId: string; title: string; accentColor: string }) {
+    const [active, setActive] = useState(false);
+    const thumbnail = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+    if (active) {
+        return (
+            <div className="aspect-video relative overflow-hidden bg-black">
+                <iframe
+                    src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`}
+                    title={title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full border-0"
+                />
+            </div>
+        );
+    }
+
+    return (
+        <button
+            className="aspect-video relative overflow-hidden bg-black block w-full cursor-pointer group/yt"
+            onClick={() => setActive(true)}
+            aria-label={`Play ${title}`}
+        >
+            {/* Thumbnail */}
+            <Image
+                src={thumbnail}
+                alt={title}
+                fill
+                className="object-cover transition-transform duration-500 group-hover/yt:scale-105"
+                unoptimized
+            />
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-black/30 group-hover/yt:bg-black/20 transition-colors" />
+            {/* Play button */}
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-transform duration-200 group-hover/yt:scale-110"
+                    style={{ backgroundColor: accentColor }}
+                >
+                    <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+            </div>
+        </button>
+    );
 }
 
 export function FeaturedWorkSection({ caseStudies, accentColor, headingFont, copyOverrides = {}, editMode, onEdit }: SectionProps) {
@@ -37,16 +88,7 @@ export function FeaturedWorkSection({ caseStudies, accentColor, headingFont, cop
                         return (
                             <div key={cs.id} className="group rounded-2xl border border-[#1a1a1a]/10 overflow-hidden hover:shadow-lg transition-all duration-300">
                                 {ytId ? (
-                                    /* YouTube embed — responsive 16:9 */
-                                    <div className="aspect-video relative overflow-hidden bg-black">
-                                        <iframe
-                                            src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1&color=white`}
-                                            title={cs.brandName}
-                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                            allowFullScreen
-                                            className="absolute inset-0 w-full h-full border-0"
-                                        />
-                                    </div>
+                                    <YouTubeCard videoId={ytId} title={cs.brandName} accentColor={accentColor} />
                                 ) : cs.imageUrl ? (
                                     <div className="aspect-video relative overflow-hidden bg-[#f0f0f0]">
                                         <Image src={cs.imageUrl} alt={cs.brandName} fill className="object-cover group-hover:scale-105 transition-transform duration-500" />
