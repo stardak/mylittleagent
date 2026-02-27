@@ -267,9 +267,10 @@ export default function OnboardingPage() {
     const [newBrand, setNewBrand] = useState("");
 
     const addBrand = () => {
-        const trimmed = newBrand.trim();
-        if (trimmed && !data.previousBrands.includes(trimmed)) {
-            updateData({ previousBrands: [...data.previousBrands, trimmed] });
+        const parts = newBrand.split(",").map((b) => b.trim()).filter(Boolean);
+        const toAdd = parts.filter((b) => !data.previousBrands.includes(b));
+        if (toAdd.length > 0) {
+            updateData({ previousBrands: [...data.previousBrands, ...toAdd] });
             setNewBrand("");
         }
     };
