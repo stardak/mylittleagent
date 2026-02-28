@@ -84,12 +84,6 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
                                             <span className="text-lg font-semibold text-[#1a1a1a]">{formatNum(platform.followers)}</span>
                                         </div>
                                     )}
-                                    {platform.engagementRate != null && (
-                                        <div className="flex justify-between">
-                                            <span className="text-sm text-[#1a1a1a]/60">Engagement</span>
-                                            <span className="text-sm font-medium" style={{ color: accentColor }}>{(platform.engagementRate * 100).toFixed(1)}%</span>
-                                        </div>
-                                    )}
                                     {platform.totalViews != null && platform.totalViews > 0 && (
                                         <div className="flex justify-between">
                                             <span className="text-sm text-[#1a1a1a]/60">Total Views</span>
