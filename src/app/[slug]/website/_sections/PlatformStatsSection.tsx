@@ -3,28 +3,33 @@
 import { SectionProps } from "./WebsiteRenderer";
 import { EditableField } from "@/components/website/EditableField";
 
-/** Map platform type string → Simple Icons slug + brand hex color */
-const PLATFORM_ICONS: Record<string, { slug: string; color: string }> = {
-    youtube: { slug: "youtube", color: "FF0000" },
-    instagram: { slug: "instagram", color: "E4405F" },
-    tiktok: { slug: "tiktok", color: "000000" },
-    facebook: { slug: "facebook", color: "1877F2" },
-    twitter: { slug: "x", color: "000000" },
-    x: { slug: "x", color: "000000" },
-    linkedin: { slug: "linkedin", color: "0A66C2" },
-    snapchat: { slug: "snapchat", color: "FFFC00" },
-    pinterest: { slug: "pinterest", color: "E60023" },
-    twitch: { slug: "twitch", color: "9146FF" },
-    spotify: { slug: "spotify", color: "1DB954" },
-    podcast: { slug: "applepodcasts", color: "872EC4" },
-    substack: { slug: "substack", color: "FF6719" },
-    patreon: { slug: "patreon", color: "FF424D" },
+
+const BASE = "https://cdn.jsdelivr.net/gh/gauravghongde/social-icons@master/SVG/Color";
+
+/** Map platform type → exact filename in SVG/Color/ of gauravghongde/social-icons */
+const PLATFORM_ICON_URL: Record<string, string> = {
+    youtube: `${BASE}/Youtube.svg`,
+    instagram: `${BASE}/Instagram.svg`,
+    tiktok: `${BASE}/Tik Tok.svg`,
+    facebook: `${BASE}/Facebook.svg`,
+    twitter: `${BASE}/Twitter.svg`,
+    x: `${BASE}/Twitter.svg`,
+    linkedin: `${BASE}/LinkedIN.svg`,
+    snapchat: `${BASE}/Snapchat.svg`,
+    pinterest: `${BASE}/Pinterest.svg`,
+    twitch: `${BASE}/Twitch.svg`,
+    spotify: `${BASE}/Spotify.svg`,
+    discord: `${BASE}/Discord.svg`,
+    reddit: `${BASE}/Reddit.svg`,
+    telegram: `${BASE}/Telegram.svg`,
+    patreon: `${BASE}/Patreon.svg`,
 };
 
-function getPlatformIcon(type: string): { slug: string; color: string } {
-    const key = type.toLowerCase().replace(/\s+/g, "");
-    return PLATFORM_ICONS[key] ?? { slug: "link", color: "6366f1" };
+function getPlatformIconUrl(type: string): string | null {
+    const key = type.toLowerCase().replace(/[\s_-]+/g, "");
+    return PLATFORM_ICON_URL[key] ?? null;
 }
+
 
 export function PlatformStatsSection({ platforms, accentColor, headingFont, copyOverrides = {}, editMode, onEdit }: SectionProps) {
     if (platforms.length === 0 && !editMode) return null;
@@ -53,18 +58,22 @@ export function PlatformStatsSection({ platforms, accentColor, headingFont, copy
                 {/* Platform cards — flex-wrap so they center naturally regardless of count */}
                 <div className="flex flex-wrap justify-center gap-6 mb-16">
                     {platforms.slice(0, 6).map((platform) => {
-                        const icon = getPlatformIcon(platform.type);
+                        const iconUrl = getPlatformIconUrl(platform.type);
                         return (
                             <div key={platform.id} className="bg-white rounded-2xl p-6 shadow-sm w-56 flex-shrink-0 text-left">
                                 {/* Logo */}
                                 <div className="w-10 h-10 rounded-xl bg-[#f5f5f5] flex items-center justify-center mb-5 overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src={`https://cdn.simpleicons.org/${icon.slug}/${icon.color}`}
-                                        alt={platform.displayName}
-                                        className="w-5 h-5 object-contain"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                    />
+                                    {iconUrl ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                            src={iconUrl}
+                                            alt={platform.displayName}
+                                            className="w-6 h-6 object-contain"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                        />
+                                    ) : (
+                                        <span className="text-sm font-bold text-[#1a1a1a]/40">{platform.displayName.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <h3 className="font-semibold text-[#1a1a1a] mb-1">{platform.displayName}</h3>
                                 <p className="text-sm text-[#1a1a1a]/50 mb-5">{platform.handle}</p>
