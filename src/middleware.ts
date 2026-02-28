@@ -30,8 +30,11 @@ const SECURITY_HEADERS: Record<string, string> = {
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.sentry-cdn.com https://vercel.live",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://lh3.googleusercontent.com",
+        // Platform logo icons (gauravghongde/social-icons via jsDelivr) + YouTube thumbnails
+        "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://lh3.googleusercontent.com https://cdn.jsdelivr.net https://img.youtube.com https://i.ytimg.com",
         "connect-src 'self' https://*.sentry.io https://vitals.vercel-insights.com",
+        // Allow YouTube/Vimeo embeds in the website sections
+        "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
         "frame-ancestors 'self'",
     ].join("; "),
 };
