@@ -56,7 +56,7 @@ export function AboutSection({ profile, accentColor, headingFont, copyOverrides 
                                         <p className="text-[#1a1a1a]/80 text-base leading-relaxed">{d}</p>
                                     </div>
                                 ))}
-                                {!differentiators.length && <p className="italic opacity-40 text-sm col-span-2">Add key differentiators (one per line)...</p>}
+                                {!differentiators.length && <p className="italic opacity-40 text-sm col-span-2 text-center">Add key differentiators (one per line)...</p>}
                             </div>
                         </EditableField>
                     </div>

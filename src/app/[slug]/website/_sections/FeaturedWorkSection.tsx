@@ -82,7 +82,7 @@ export function FeaturedWorkSection({ caseStudies, accentColor, headingFont, cop
                         <h2 className="text-4xl md:text-5xl font-semibold text-[#1a1a1a] leading-tight max-w-3xl mx-auto" style={{ fontFamily: headingFont }}>{sectionHeading}</h2>
                     </EditableField>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 text-left">
                     {caseStudies.slice(0, 6).map((cs) => {
                         const ytId = getYouTubeId(cs.contentUrl);
                         return (

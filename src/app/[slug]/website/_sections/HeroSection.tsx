@@ -137,16 +137,7 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
                     </div>
                 )}
 
-                {stats.length > 0 && (
-                    <div className="grid grid-cols-3 gap-6 md:gap-12 max-w-xl mx-auto">
-                        {stats.map((stat) => (
-                            <div key={stat.label}>
-                                <p className="text-3xl md:text-4xl font-semibold text-white" style={{ fontFamily: headingFont }}>{stat.value}</p>
-                                <p className="text-xs text-white/50 tracking-widest uppercase mt-1">{stat.label}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
+
             </div>
 
             {!editMode && (
