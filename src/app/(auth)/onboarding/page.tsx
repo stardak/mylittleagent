@@ -233,8 +233,17 @@ export default function OnboardingPage() {
     };
 
     const removeCaseStudy = (index: number) => {
-        updateData({
-            caseStudies: data.caseStudies.filter((_, i) => i !== index),
+        setData((prev) => ({
+            ...prev,
+            caseStudies: prev.caseStudies.filter((_, i) => i !== index),
+        }));
+    };
+
+    const updateCaseStudy = (index: number, field: string, value: string) => {
+        setData((prev) => {
+            const updated = [...prev.caseStudies];
+            updated[index] = { ...updated[index], [field]: value };
+            return { ...prev, caseStudies: updated };
         });
     };
 
@@ -874,11 +883,7 @@ export default function OnboardingPage() {
                                                 <Input
                                                     placeholder="e.g. Land Rover"
                                                     value={cs.brandName}
-                                                    onChange={(e) => {
-                                                        const updated = [...data.caseStudies];
-                                                        updated[index] = { ...updated[index], brandName: e.target.value };
-                                                        updateData({ caseStudies: updated });
-                                                    }}
+                                                    onChange={(e) => updateCaseStudy(index, "brandName", e.target.value)}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -886,11 +891,7 @@ export default function OnboardingPage() {
                                                 <Input
                                                     placeholder="e.g. Automotive"
                                                     value={cs.industry}
-                                                    onChange={(e) => {
-                                                        const updated = [...data.caseStudies];
-                                                        updated[index] = { ...updated[index], industry: e.target.value };
-                                                        updateData({ caseStudies: updated });
-                                                    }}
+                                                    onChange={(e) => updateCaseStudy(index, "industry", e.target.value)}
                                                 />
                                             </div>
                                         </div>
@@ -900,20 +901,12 @@ export default function OnboardingPage() {
                                                 rows={2}
                                                 placeholder="What was the campaign about?"
                                                 value={cs.brief}
-                                                onChange={(e) => {
-                                                    const updated = [...data.caseStudies];
-                                                    updated[index] = { ...updated[index], brief: e.target.value };
-                                                    updateData({ caseStudies: updated });
-                                                }}
+                                                onChange={(e) => updateCaseStudy(index, "brief", e.target.value)}
                                                 className="resize-none"
                                             />
                                             <ImproveWithAI
                                                 value={cs.brief}
-                                                onImproved={(text) => {
-                                                    const updated = [...data.caseStudies];
-                                                    updated[index] = { ...updated[index], brief: text };
-                                                    updateData({ caseStudies: updated });
-                                                }}
+                                                onImproved={(text) => updateCaseStudy(index, "brief", text)}
                                                 fieldType="brief"
                                                 context={`Brand: ${cs.brandName}, Industry: ${cs.industry}`}
                                                 disabled={!hasExistingApiKey}
@@ -924,19 +917,11 @@ export default function OnboardingPage() {
                                             <Input
                                                 placeholder="e.g. 450K views, 8.2% engagement"
                                                 value={cs.result}
-                                                onChange={(e) => {
-                                                    const updated = [...data.caseStudies];
-                                                    updated[index] = { ...updated[index], result: e.target.value };
-                                                    updateData({ caseStudies: updated });
-                                                }}
+                                                onChange={(e) => updateCaseStudy(index, "result", e.target.value)}
                                             />
                                             <ImproveWithAI
                                                 value={cs.result}
-                                                onImproved={(text) => {
-                                                    const updated = [...data.caseStudies];
-                                                    updated[index] = { ...updated[index], result: text };
-                                                    updateData({ caseStudies: updated });
-                                                }}
+                                                onImproved={(text) => updateCaseStudy(index, "result", text)}
                                                 fieldType="result"
                                                 context={`Brand: ${cs.brandName}, Industry: ${cs.industry}, Brief: ${cs.brief}`}
                                                 disabled={!hasExistingApiKey}
@@ -951,11 +936,7 @@ export default function OnboardingPage() {
                                                 type="url"
                                                 placeholder="https://youtube.com/watch?v=... or Instagram post URL"
                                                 value={cs.contentUrl}
-                                                onChange={(e) => {
-                                                    const updated = [...data.caseStudies];
-                                                    updated[index] = { ...updated[index], contentUrl: e.target.value };
-                                                    updateData({ caseStudies: updated });
-                                                }}
+                                                onChange={(e) => updateCaseStudy(index, "contentUrl", e.target.value)}
                                             />
                                             <p className="text-xs text-muted-foreground">Link to your YouTube video, Instagram post, TikTok, or blog — brands will be able to see it directly.</p>
                                         </div>
