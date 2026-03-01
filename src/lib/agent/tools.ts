@@ -506,7 +506,7 @@ export function makeAgentTools(workspaceId: string, userId?: string) {
                         avgViews: p.avgViews,
                         engagement: p.engagementRate,
                     })),
-                    pastWork: caseStudies.map((cs: { brandName: string; industry: string | null; result: string }) => ({
+                    pastWork: caseStudies.map((cs: { brandName: string; industry: string | null; result: string | null }) => ({
                         brand: cs.brandName,
                         industry: cs.industry,
                         result: cs.result,
