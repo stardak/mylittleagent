@@ -21,6 +21,7 @@ import {
     RefreshCw,
     Camera,
     ImagePlus,
+    Images,
     Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AiWebsitePanel } from "@/components/website/AiWebsitePanel";
+import { PexelsPickerModal } from "@/components/website/PexelsPickerModal";
 import { WebsiteRenderer } from "@/app/[slug]/website/_sections/WebsiteRenderer";
 import { BrandProfile, Platform, CaseStudy, Testimonial } from "@prisma/client";
 
@@ -76,6 +78,7 @@ export default function WebsitePage() {
     const [seoTitle, setSeoTitle] = useState("");
     const [seoDescription, setSeoDescription] = useState("");
     const [uploadingHero, setUploadingHero] = useState(false);
+    const [showPexels, setShowPexels] = useState(false);
     const heroFileRef = useRef<HTMLInputElement>(null);
     const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -356,6 +359,24 @@ export default function WebsitePage() {
                             : <><ImagePlus className="h-3 w-3" />{copyOverrides["hero.imageUrl"] ? "Replace Image" : "Upload Hero Image"}</>
                         }
                     </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full h-7 text-xs gap-1.5 border-brand/30 text-brand hover:bg-brand/5 hover:border-brand/50"
+                        onClick={() => setShowPexels(true)}
+                    >
+                        <Images className="h-3 w-3" /> Browse Free Photos
+                    </Button>
+                    <PexelsPickerModal
+                        open={showPexels}
+                        onClose={() => setShowPexels(false)}
+                        defaultQuery={profile?.tagline || profile?.brandName || "lifestyle photography"}
+                        onSelect={(url, attribution) => {
+                            handleFieldEdit("hero.imageUrl", url);
+                            handleFieldEdit("hero.imageAttribution", attribution);
+                            toast.success("Photo applied!", { description: attribution });
+                        }}
+                    />
                     {copyOverrides["hero.imageUrl"] && (
                         <p className="text-[10px] text-muted-foreground text-center">
                             Using website-specific image · <button className="underline" onClick={() => handleFieldEdit("hero.imageUrl", "")}>Reset to profile image</button>
