@@ -489,19 +489,20 @@ export default function PipelinePage() {
                                                     setNewBrandFindingContact(false);
                                                 }
                                             }}
-                                            className="flex items-center gap-1.5 text-xs font-medium text-brand hover:text-brand/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
                                         >
                                             {newBrandFindingContact ? (
-                                                <><Loader2 className="h-3 w-3 animate-spin" /> Searching...</>
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...</>
                                             ) : (
-                                                <><Sparkles className="h-3 w-3" /> Find with AI</>
+                                                <><Sparkles className="h-3.5 w-3.5" /> Find Contact with AI</>
                                             )}
                                         </button>
                                     </div>
 
                                     {/* AI results for new brand */}
                                     {newBrandContactResults.length > 0 && (
-                                        <div className="rounded-lg border bg-muted/30 divide-y max-h-40 overflow-y-auto">
+                                        <div className="rounded-lg border border-brand/20 bg-brand/5 divide-y overflow-hidden">
+                                            <p className="text-[10px] font-semibold text-brand uppercase tracking-wider px-3 pt-2 pb-1">Select a contact to auto-fill</p>
                                             {newBrandContactResults.map((c, i) => (
                                                 <button
                                                     key={i}
@@ -515,17 +516,18 @@ export default function PipelinePage() {
                                                         setNewBrandContactResults([]);
                                                         toast.success("Contact pre-filled");
                                                     }}
-                                                    className="w-full text-left px-3 py-2 hover:bg-brand/5 transition-colors"
+                                                    className="w-full text-left px-3 py-2 hover:bg-brand/10 transition-colors"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         <div className="flex-1 min-w-0">
                                                             <p className="text-xs font-medium truncate">
                                                                 {c.name || <span className="text-muted-foreground italic">Name unknown</span>}
+                                                                {c.role && <span className="text-muted-foreground font-normal"> · {c.role}</span>}
                                                                 {c.verified && <span className="ml-1.5 text-[10px] text-green-600 font-semibold">✓ verified</span>}
                                                             </p>
-                                                            {c.role && <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>}
                                                             {c.email && <p className="text-[10px] text-brand truncate">{c.email}</p>}
                                                         </div>
+                                                        <ChevronRight className="h-3.5 w-3.5 text-brand/50 shrink-0" />
                                                     </div>
                                                 </button>
                                             ))}

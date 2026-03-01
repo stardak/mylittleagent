@@ -238,6 +238,34 @@ function OutreachPageInner() {
         includeMediaCard: false,
     });
 
+    // AI contact finder for new outreach form
+    type ContactCandidate = { name: string | null; role: string | null; email: string | null; source: string; snippet: string; verified?: boolean };
+    const [outreachFindingContact, setOutreachFindingContact] = useState(false);
+    const [outreachContactResults, setOutreachContactResults] = useState<ContactCandidate[]>([]);
+
+    const findOutreachContact = async () => {
+        if (!newOutreach.brandName.trim()) return;
+        setOutreachFindingContact(true);
+        setOutreachContactResults([]);
+        try {
+            const res = await fetch("/api/brands/find-contact", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ brandName: newOutreach.brandName, website: newOutreach.brandUrl }),
+            });
+            const data = await res.json();
+            if (res.ok && data.candidates?.length > 0) {
+                setOutreachContactResults(data.candidates);
+            } else {
+                toast.info("No contacts found", { description: "Try adding the brand website URL first for better results." });
+            }
+        } catch {
+            toast.error("Search failed");
+        } finally {
+            setOutreachFindingContact(false);
+        }
+    };
+
     // Workspace slug for media card link
     const [workspaceSlug, setWorkspaceSlug] = useState<string>("");
 
@@ -704,6 +732,7 @@ function OutreachPageInner() {
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 mt-4">
+                                {/* Brand name + industry */}
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label>Brand Name *</Label>
@@ -711,25 +740,6 @@ function OutreachPageInner() {
                                             placeholder="e.g. Nike"
                                             value={newOutreach.brandName}
                                             onChange={(e) => setNewOutreach({ ...newOutreach, brandName: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Contact Email *</Label>
-                                        <Input
-                                            type="email"
-                                            placeholder="partnerships@brand.com"
-                                            value={newOutreach.contactEmail}
-                                            onChange={(e) => setNewOutreach({ ...newOutreach, contactEmail: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label>Product / Service *</Label>
-                                        <Input
-                                            placeholder="e.g. Running shoes"
-                                            value={newOutreach.product}
-                                            onChange={(e) => setNewOutreach({ ...newOutreach, product: e.target.value })}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -745,6 +755,76 @@ function OutreachPageInner() {
                                             ))}
                                         </select>
                                     </div>
+                                </div>
+
+                                {/* AI Contact Finder */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Contact</Label>
+                                        <button
+                                            type="button"
+                                            disabled={!newOutreach.brandName.trim() || outreachFindingContact}
+                                            onClick={findOutreachContact}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                                        >
+                                            {outreachFindingContact ? (
+                                                <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching...</>
+                                            ) : (
+                                                <><Sparkles className="h-3.5 w-3.5" /> Find Contact with AI</>
+                                            )}
+                                        </button>
+                                    </div>
+
+                                    {outreachContactResults.length > 0 && (
+                                        <div className="rounded-lg border border-brand/20 bg-brand/5 divide-y overflow-hidden">
+                                            <p className="text-[10px] font-semibold text-brand uppercase tracking-wider px-3 pt-2 pb-1">Select a contact to auto-fill</p>
+                                            {outreachContactResults.map((c, i) => (
+                                                <button
+                                                    key={i}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setNewOutreach({
+                                                            ...newOutreach,
+                                                            contactEmail: c.email || newOutreach.contactEmail,
+                                                        });
+                                                        setOutreachContactResults([]);
+                                                        toast.success("Contact pre-filled");
+                                                    }}
+                                                    className="w-full text-left px-3 py-2 hover:bg-brand/10 transition-colors"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-xs font-medium truncate">
+                                                                {c.name || <span className="text-muted-foreground italic">Name unknown</span>}
+                                                                {c.role && <span className="text-muted-foreground font-normal"> · {c.role}</span>}
+                                                                {c.verified && <span className="ml-1.5 text-[10px] text-green-600 font-semibold">✓ verified</span>}
+                                                            </p>
+                                                            {c.email && <p className="text-[10px] text-brand truncate">{c.email}</p>}
+                                                        </div>
+                                                        <ArrowRight className="h-3.5 w-3.5 text-brand/50 shrink-0" />
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <Label>Contact Email *</Label>
+                                        <Input
+                                            type="email"
+                                            placeholder="partnerships@brand.com"
+                                            value={newOutreach.contactEmail}
+                                            onChange={(e) => setNewOutreach({ ...newOutreach, contactEmail: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Product / Service *</Label>
+                                    <Input
+                                        placeholder="e.g. Running shoes"
+                                        value={newOutreach.product}
+                                        onChange={(e) => setNewOutreach({ ...newOutreach, product: e.target.value })}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Brand Website <span className="text-muted-foreground font-normal">(optional — helps AI write better emails)</span></Label>
