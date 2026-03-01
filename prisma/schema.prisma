@@ -186,7 +186,7 @@ model CaseStudy {
   brandName    String
   industry     String?
   brief        String?   @db.Text
-  result       String
+  result       String?
   resultMetric String?
   description  String?   @db.Text
   contentUrl   String?
