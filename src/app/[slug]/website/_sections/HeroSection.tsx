@@ -2,13 +2,15 @@
 
 import { SectionProps } from "./WebsiteRenderer";
 import { EditableField } from "@/components/website/EditableField";
+import { PexelsPickerModal } from "@/components/website/PexelsPickerModal";
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, Images } from "lucide-react";
 
 export function HeroSection({ profile, platforms, accentColor, headingFont, heroVideoUrl, copyOverrides = {}, editMode, onEdit }: SectionProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
+    const [showPexels, setShowPexels] = useState(false);
     const combinedFollowers = platforms.reduce((sum, p) => sum + (p.followers ?? 0), 0);
     const totalViews = platforms.reduce((sum, p) => sum + (p.totalViews ?? 0), 0);
 
@@ -56,6 +58,7 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
     const bio = copyOverrides["hero.bio"] ?? profile?.bio?.split("\n")[0] ?? "";
     const location = copyOverrides["hero.location"] ?? profile?.location ?? "";
     const heroImageUrl = copyOverrides["hero.imageUrl"] ?? profile?.heroImageUrl ?? "";
+    const heroAttribution = copyOverrides["hero.imageAttribution"] ?? "";
 
     return (
         <section className="relative min-h-screen flex items-center overflow-hidden bg-[#0e0e0e]">
@@ -74,6 +77,7 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
                 {editMode && (
                     <>
                         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                        {/* Upload button */}
                         <button
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
@@ -83,10 +87,34 @@ export function HeroSection({ profile, platforms, accentColor, headingFont, hero
                         >
                             {uploading
                                 ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
-                                : <><Camera className="w-4 h-4" /> Change Hero Image</>
+                                : <><Camera className="w-4 h-4" /> Upload Image</>
                             }
                         </button>
+                        {/* Pexels picker button */}
+                        <button
+                            onClick={() => setShowPexels(true)}
+                            className="absolute top-4 right-48 z-20 flex items-center gap-2 px-4 py-2 rounded-xl
+                                bg-black/60 backdrop-blur-sm border border-white/20 text-white text-sm
+                                hover:bg-black/80 transition-all duration-200 opacity-0 group-hover/bg:opacity-100"
+                        >
+                            <Images className="w-4 h-4" /> Browse Free Photos
+                        </button>
+                        <PexelsPickerModal
+                            open={showPexels}
+                            onClose={() => setShowPexels(false)}
+                            defaultQuery={profile?.tagline || profile?.brandName || "lifestyle photography"}
+                            onSelect={(url, attribution) => {
+                                onEdit?.("hero.imageUrl", url);
+                                onEdit?.("hero.imageAttribution", attribution);
+                            }}
+                        />
                     </>
+                )}
+                {/* Pexels attribution overlay */}
+                {heroAttribution && !editMode && (
+                    <div className="absolute bottom-4 right-4 z-10">
+                        <p className="text-[10px] text-white/40">{heroAttribution}</p>
+                    </div>
                 )}
             </div>
 
