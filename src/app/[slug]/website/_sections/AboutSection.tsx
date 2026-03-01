@@ -41,26 +41,7 @@ export function AboutSection({ profile, accentColor, headingFont, copyOverrides 
                     </div>
                 )}
 
-                {(differentiators.length > 0 || editMode) && (
-                    <div>
-                        <p className="text-sm tracking-[0.25em] uppercase font-medium mb-6" style={{ color: accentColor }}>What Sets Me Apart</p>
-                        <EditableField field="about.differentiators" value={differentiators.join("\n")} editMode={editMode} onEdit={onEdit} multiline accentColor={accentColor} wrapClassName="block">
-                            <div className="grid sm:grid-cols-2 gap-4 text-left">
-                                {differentiators.map((d, i) => (
-                                    <div key={i} className="flex items-start gap-4 p-5 rounded-2xl bg-[#f9f8f6]">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: accentColor }}>
-                                            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                            </svg>
-                                        </div>
-                                        <p className="text-[#1a1a1a]/80 text-base leading-relaxed">{d}</p>
-                                    </div>
-                                ))}
-                                {!differentiators.length && <p className="italic opacity-40 text-sm col-span-2 text-center">Add key differentiators (one per line)...</p>}
-                            </div>
-                        </EditableField>
-                    </div>
-                )}
+
             </div>
         </section>
     );
