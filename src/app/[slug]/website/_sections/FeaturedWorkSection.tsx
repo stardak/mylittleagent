@@ -78,7 +78,7 @@ function InstagramCard({ shortcode, title }: { shortcode: string; title: string 
     const [loaded, setLoaded] = useState(false);
 
     return (
-        <div className="relative overflow-hidden bg-[#fafafa]" style={{ minHeight: 420 }}>
+        <div className="relative overflow-hidden bg-[#fafafa] aspect-[9/16]">
             {/* Instagram gradient placeholder while loading */}
             {!loaded && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#f09433] via-[#e6683c] via-30% via-[#dc2743] via-60% via-[#cc2366] to-[#bc1888]">
@@ -91,8 +91,8 @@ function InstagramCard({ shortcode, title }: { shortcode: string; title: string 
             <iframe
                 src={`https://www.instagram.com/p/${shortcode}/embed/`}
                 title={title}
-                className="w-full border-0 transition-opacity duration-300"
-                style={{ minHeight: 420, opacity: loaded ? 1 : 0 }}
+                className="absolute inset-0 w-full h-full border-0 transition-opacity duration-300"
+                style={{ opacity: loaded ? 1 : 0 }}
                 scrolling="no"
                 allowTransparency
                 onLoad={() => setLoaded(true)}
